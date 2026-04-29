@@ -1,0 +1,23 @@
+services:
+  app:
+    image: ghcr.io/jonkirkwood/things-ive-done:latest
+    build: .
+    ports:
+      - "6666:6666"
+    volumes:
+      - visits-data:/app/backend/data
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - DB_PATH=/app/backend/data/visits.db
+
+  watchtower:
+    image: containrrr/watchtower
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: --interval 3600
+    restart: unless-stopped
+
+volumes:
+  visits-data:
