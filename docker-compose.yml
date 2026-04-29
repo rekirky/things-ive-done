@@ -10,7 +10,7 @@ services:
     environment:
       - DB_PATH=/app/data/visits.db
     ports:
-      - "6667:3000"
+      - "6801:3000"
 
   frontend:
     image: ghcr.io/rekirky/things-ive-done-frontend:latest
@@ -19,7 +19,7 @@ services:
     labels:
       - com.centurylinklabs.watchtower.scope=tid
     ports:
-      - "6666:80"
+      - "6800:80"
     depends_on:
       - backend
 
