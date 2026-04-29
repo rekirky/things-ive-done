@@ -3,6 +3,8 @@ services:
     image: ghcr.io/rekirky/things-ive-done-backend:latest
     container_name: tid-api
     restart: unless-stopped
+    labels:
+      - com.centurylinklabs.watchtower.scope=tid
     volumes:
       - /mnt/user/appdata/thingsivedonev:/app/data
     environment:
@@ -14,6 +16,8 @@ services:
     image: ghcr.io/rekirky/things-ive-done-frontend:latest
     container_name: tid-ui
     restart: unless-stopped
+    labels:
+      - com.centurylinklabs.watchtower.scope=tid
     ports:
       - "6666:80"
     depends_on:
@@ -25,4 +29,7 @@ services:
     restart: unless-stopped
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-    command: ["--interval", "300", "--cleanup", "tid-api", "tid-ui"]
+    environment:
+      - WATCHTOWER_CLEANUP=true
+      - WATCHTOWER_POLL_INTERVAL=300
+      - WATCHTOWER_SCOPE=tid
