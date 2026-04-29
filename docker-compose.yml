@@ -1,23 +1,28 @@
 services:
-  app:
-    image: ghcr.io/jonkirkwood/things-ive-done:latest
-    build: .
-    ports:
-      - "6666:6666"
-    volumes:
-      - visits-data:/app/backend/data
+  backend:
+    image: ghcr.io/rekirky/things-ive-done-backend:latest
+    container_name: tid-api
     restart: unless-stopped
+    volumes:
+      - /mnt/user/appdata/thingsivedonev:/app/data
     environment:
-      - NODE_ENV=production
-      - PORT=3000
-      - DB_PATH=/app/backend/data/visits.db
+      - DB_PATH=/app/data/visits.db
+    ports:
+      - "6667:3000"
+
+  frontend:
+    image: ghcr.io/rekirky/things-ive-done-frontend:latest
+    container_name: tid-ui
+    restart: unless-stopped
+    ports:
+      - "6666:80"
+    depends_on:
+      - backend
 
   watchtower:
     image: containrrr/watchtower
+    container_name: tid-watchtower
+    restart: unless-stopped
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-    command: --interval 3600
-    restart: unless-stopped
-
-volumes:
-  visits-data:
+    command: --interval 300 --cleanup tid-api tid-ui
