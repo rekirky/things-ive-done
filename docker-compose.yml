@@ -9,6 +9,8 @@ services:
       - /mnt/user/appdata/thingsivedonev:/app/data
     environment:
       - DB_PATH=/app/data/visits.db
+      - SPOTIFY_CLIENT_ID=4f62139de8bf4e04856ac0072a93454f
+      - SPOTIFY_CLIENT_SECRET=8558f2f1546446968d8d7e5c83fa734b
     ports:
       - "6801:3000"
 

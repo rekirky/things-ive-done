@@ -6,7 +6,7 @@ import './WorldMap.css';
 
 const WORLD_URL = 'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json';
 const US_URL = 'https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json';
-const AUS_URL = '/aus-states.geojson';
+const AUS_URL = '/aus-states-topo.json';
 
 // ISO numeric -> country name mapping (subset covering likely visited countries)
 // Full mapping loaded from world-atlas properties
@@ -158,10 +158,10 @@ export default function WorldMap({ visits, onRefresh }) {
 
     // Draw Australian states
     if (ausGeo) {
-      const ausFeatures = ausGeo.type === 'FeatureCollection'
-        ? ausGeo.features
-        : ausGeo.type === 'Topology'
-          ? topojson.feature(ausGeo, ausGeo.objects[Object.keys(ausGeo.objects)[0]]).features
+      const ausFeatures = ausGeo.type === 'Topology'
+        ? topojson.feature(ausGeo, ausGeo.objects[Object.keys(ausGeo.objects)[0]]).features
+        : ausGeo.type === 'FeatureCollection'
+          ? ausGeo.features
           : [];
       g.selectAll('.aus-state')
         .data(ausFeatures)

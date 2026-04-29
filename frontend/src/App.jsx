@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import WorldMap from './components/WorldMap.jsx';
 import AdminPanel from './components/AdminPanel.jsx';
+import BandSearch from './components/BandSearch.jsx';
 import './App.css';
 
 export default function App() {
@@ -19,12 +20,13 @@ export default function App() {
         <nav>
           <button className={tab === 'map' ? 'active' : ''} onClick={() => setTab('map')}>Map</button>
           <button className={tab === 'admin' ? 'active' : ''} onClick={() => setTab('admin')}>Admin</button>
+          <button className={tab === 'bands' ? 'active' : ''} onClick={() => setTab('bands')}>Bands I've Seen</button>
         </nav>
       </header>
       <main className="main">
-        {tab === 'map'
-          ? <WorldMap visits={visits} onRefresh={fetchVisits} />
-          : <AdminPanel visits={visits} onRefresh={fetchVisits} />}
+        {tab === 'map' && <WorldMap visits={visits} onRefresh={fetchVisits} />}
+        {tab === 'admin' && <AdminPanel visits={visits} onRefresh={fetchVisits} />}
+        {tab === 'bands' && <BandSearch />}
       </main>
     </div>
   );

@@ -4,7 +4,12 @@
       "WebFetch(domain:raw.githubusercontent.com)",
       "Bash(curl -s \"https://raw.githubusercontent.com/tonywr71/GeoJson-Data/master/australian-states.min.geojson\")",
       "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(len\\(d['features']\\), 'features'\\); [print\\(f['properties']\\) for f in d['features']]\")",
-      "Bash(node -e ' *)"
+      "Bash(node -e ' *)",
+      "Edit(~/.claude/skills/caveman/**)",
+      "Bash(npx --yes topojson-server geo2topo aus-states=\"frontend/public/aus-states.geojson\" -o frontend/public/aus-states-topo.json)"
+    ],
+    "additionalDirectories": [
+      "C:\\Users\\re_ki\\.claude\\skills"
     ]
   }
 }
