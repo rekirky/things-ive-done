@@ -5,23 +5,6 @@
   overflow: hidden;
 }
 
-.world-svg {
-  width: 100%;
-  height: calc(100vh - 64px);
-  cursor: grab;
-}
-
-.world-svg:active { cursor: grabbing; }
-
-.country, .us-state, .aus-state {
-  transition: fill 0.15s;
-}
-
-.country:hover, .us-state:hover, .aus-state:hover {
-  fill: #c0392b !important;
-  cursor: pointer;
-}
-
 .map-tooltip {
   position: fixed;
   background: rgba(22, 33, 62, 0.95);

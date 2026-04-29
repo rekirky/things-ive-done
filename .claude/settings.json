@@ -6,7 +6,14 @@
       "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(len\\(d['features']\\), 'features'\\); [print\\(f['properties']\\) for f in d['features']]\")",
       "Bash(node -e ' *)",
       "Edit(~/.claude/skills/caveman/**)",
-      "Bash(npx --yes topojson-server geo2topo aus-states=\"frontend/public/aus-states.geojson\" -o frontend/public/aus-states-topo.json)"
+      "Bash(npx --yes topojson-server geo2topo aus-states=\"frontend/public/aus-states.geojson\" -o frontend/public/aus-states-topo.json)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:api.github.com)",
+      "Bash(curl -s \"https://raw.githubusercontent.com/georgique/world-geojson/develop/states/australia/new_south_wales.json\")",
+      "Bash(curl -s \"https://raw.githubusercontent.com/georgique/world-geojson/develop/states/australia/victoria.json\")",
+      "Bash(curl -s \"https://raw.githubusercontent.com/georgique/world-geojson/develop/states/australia/queensland.json\")",
+      "Bash(curl -s \"https://raw.githubusercontent.com/georgique/world-geojson/develop/states/australia/south_australia.json\")",
+      "Bash(curl -s \"https://raw.githubusercontent.com/georgique/world-geojson/develop/states/australia/western_australia.json\")"
     ],
     "additionalDirectories": [
       "C:\\Users\\re_ki\\.claude\\skills"
