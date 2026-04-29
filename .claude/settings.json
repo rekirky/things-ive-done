@@ -3,7 +3,8 @@
     "allow": [
       "WebFetch(domain:raw.githubusercontent.com)",
       "Bash(curl -s \"https://raw.githubusercontent.com/tonywr71/GeoJson-Data/master/australian-states.min.geojson\")",
-      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(len\\(d['features']\\), 'features'\\); [print\\(f['properties']\\) for f in d['features']]\")"
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(len\\(d['features']\\), 'features'\\); [print\\(f['properties']\\) for f in d['features']]\")",
+      "Bash(node -e ' *)"
     ]
   }
 }

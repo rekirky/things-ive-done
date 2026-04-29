@@ -1,0 +1,87 @@
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+}
+
+.modal-box {
+  background: #16213e;
+  border: 1px solid #0f3460;
+  border-radius: 10px;
+  padding: 24px 28px;
+  min-width: 240px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.modal-location {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #e94560;
+  margin: 0;
+}
+
+.modal-label {
+  font-size: 0.8rem;
+  color: #aaa;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.modal-year {
+  width: 100%;
+  padding: 8px 10px;
+  background: #0d1117;
+  border: 1px solid #0f3460;
+  border-radius: 6px;
+  color: #e0e0e0;
+  font-size: 1rem;
+  box-sizing: border-box;
+}
+
+.modal-year:focus {
+  outline: none;
+  border-color: #e94560;
+}
+
+.modal-error {
+  color: #e94560;
+  font-size: 0.8rem;
+  margin: 0;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.modal-cancel, .modal-save {
+  padding: 7px 18px;
+  border-radius: 6px;
+  border: none;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.modal-cancel {
+  background: #2a2a4a;
+  color: #ccc;
+}
+
+.modal-cancel:hover { background: #3a3a5a; }
+
+.modal-save {
+  background: #e94560;
+  color: #fff;
+  font-weight: 600;
+}
+
+.modal-save:hover:not(:disabled) { background: #c0392b; }
+.modal-save:disabled { opacity: 0.5; cursor: not-allowed; }

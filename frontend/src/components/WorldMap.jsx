@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import * as d3 from 'd3';
 import * as topojson from 'topojson-client';
+import VisitModal from './VisitModal.jsx';
 import './WorldMap.css';
 
 const WORLD_URL = 'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json';
@@ -32,10 +33,11 @@ const AUS_STATE_NAMES = {
   'WA':'Western Australia','TAS':'Tasmania','NT':'Northern Territory','ACT':'Australian Capital Territory'
 };
 
-export default function WorldMap({ visits }) {
+export default function WorldMap({ visits, onRefresh }) {
   const svgRef = useRef(null);
   const [tooltip, setTooltip] = useState({ visible: false, x: 0, y: 0, content: '' });
   const [topoData, setTopoData] = useState(null);
+  const [clickTarget, setClickTarget] = useState(null);
 
   useEffect(() => {
     Promise.all([
@@ -116,7 +118,12 @@ export default function WorldMap({ visits }) {
         const years = visitMap[name];
         showTooltip(event, name, years);
       })
-      .on('mouseleave', hideTooltip);
+      .on('mouseleave', hideTooltip)
+      .on('click', (event, d) => {
+        const name = numericToName[d.id];
+        if (!name || name === 'United States of America' || name === 'Australia') return;
+        setClickTarget({ country: name, state: null, displayName: name });
+      });
 
     // Draw US states over USA
     if (us) {
@@ -140,7 +147,13 @@ export default function WorldMap({ visits }) {
           const years = visitMap[`United States::${stateName}`];
           showTooltip(event, `${stateName}, USA`, years);
         })
-        .on('mouseleave', hideTooltip);
+        .on('mouseleave', hideTooltip)
+        .on('click', (event, d) => {
+          const fips = String(d.id).padStart(2, '0');
+          const stateName = US_STATE_NAMES[fips];
+          if (!stateName) return;
+          setClickTarget({ country: 'United States', state: stateName, displayName: `${stateName}, USA` });
+        });
     }
 
     // Draw Australian states
@@ -169,7 +182,13 @@ export default function WorldMap({ visits }) {
           const years = visitMap[`Australia::${stateName}`];
           showTooltip(event, `${stateName}, Australia`, years);
         })
-        .on('mouseleave', hideTooltip);
+        .on('mouseleave', hideTooltip)
+        .on('click', (event, d) => {
+          const abbr = d.properties?.STATE_CODE || d.properties?.ste_code21 || d.id;
+          const stateName = AUS_STATE_NAMES[abbr] || d.properties?.STATE_NAME || d.properties?.ste_name21;
+          if (!stateName) return;
+          setClickTarget({ country: 'Australia', state: stateName, displayName: `${stateName}, Australia` });
+        });
     }
 
     // Zoom
@@ -189,6 +208,13 @@ export default function WorldMap({ visits }) {
         >
           {tooltip.content.split('\n').map((line, i) => <div key={i}>{line}</div>)}
         </div>
+      )}
+      {clickTarget && (
+        <VisitModal
+          {...clickTarget}
+          onSave={() => { setClickTarget(null); onRefresh(); }}
+          onClose={() => setClickTarget(null)}
+        />
       )}
     </div>
   );

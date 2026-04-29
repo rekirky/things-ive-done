@@ -23,7 +23,7 @@ export default function App() {
       </header>
       <main className="main">
         {tab === 'map'
-          ? <WorldMap visits={visits} />
+          ? <WorldMap visits={visits} onRefresh={fetchVisits} />
           : <AdminPanel visits={visits} onRefresh={fetchVisits} />}
       </main>
     </div>
