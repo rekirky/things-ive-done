@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useRef } from 'react';
 import { ComposableMap, Geographies, Geography, ZoomableGroup } from 'react-simple-maps';
 import VisitModal from './VisitModal.jsx';
 import './WorldMap.css';
@@ -42,6 +42,31 @@ function lighten(hex) {
 export default function WorldMap({ visits, onRefresh, onAdminOpen }) {
   const [tooltip, setTooltip] = useState({ visible: false, x: 0, y: 0, lines: [] });
   const [clickTarget, setClickTarget] = useState(null);
+  const [zoom, setZoom] = useState(1);
+  const [center, setCenter] = useState([0, 20]);
+  const rafRef = useRef(null);
+  const zoomRef = useRef(1);
+
+  const smoothZoom = useCallback((target) => {
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    const start = zoomRef.current;
+    const diff = target - start;
+    const duration = 280;
+    const t0 = performance.now();
+    const tick = (now) => {
+      const t = Math.min((now - t0) / duration, 1);
+      const eased = 1 - Math.pow(1 - t, 3);
+      const next = Math.max(1, Math.min(24, start + diff * eased));
+      zoomRef.current = next;
+      setZoom(next);
+      if (t < 1) rafRef.current = requestAnimationFrame(tick);
+    };
+    rafRef.current = requestAnimationFrame(tick);
+  }, []);
+
+  const zoomIn  = () => smoothZoom(Math.min(zoomRef.current * 2, 24));
+  const zoomOut = () => smoothZoom(Math.max(zoomRef.current / 2, 1));
+  const zoomReset = () => { smoothZoom(1); setCenter([0, 20]); };
 
   const visitMap = useMemo(() => {
     const map = {};
@@ -101,12 +126,26 @@ export default function WorldMap({ visits, onRefresh, onAdminOpen }) {
     <div className="map-container">
       <button className="map-gear-btn" onClick={onAdminOpen} title="Admin">⚙</button>
 
+      <div className="map-zoom-controls">
+        <button onClick={zoomIn}  title="Zoom in">+</button>
+        <button onClick={zoomReset} title="Reset view">⌂</button>
+        <button onClick={zoomOut} title="Zoom out">−</button>
+      </div>
+
       <ComposableMap
         projection="geoNaturalEarth1"
         projectionConfig={{ scale: 160 }}
         style={{ width: '100%', height: 'calc(100vh - 64px)' }}
       >
-        <ZoomableGroup>
+        <ZoomableGroup
+          zoom={zoom}
+          center={center}
+          onMoveEnd={({ coordinates, zoom: z }) => {
+            setCenter(coordinates);
+            zoomRef.current = z;
+            setZoom(z);
+          }}
+        >
 
           <Geographies geography={WORLD_URL}>
             {({ geographies }) => geographies.map(geo => {
