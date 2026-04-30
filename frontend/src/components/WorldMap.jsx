@@ -111,8 +111,17 @@ export default function WorldMap({ visits, onRefresh, onAdminOpen }) {
           <Geographies geography={WORLD_URL}>
             {({ geographies }) => geographies.map(geo => {
               const numId = parseInt(geo.properties?.iso_n3);
-              const name = numericToName[numId];
-              const continent = numericToContinent[numId];
+              let name = numericToName[numId];
+              let continent = numericToContinent[numId];
+
+              // Natural Earth assigns iso_n3 = -99 to France, Norway, Kosovo etc.
+              // Fall back to iso_a3_eh or geo name for these.
+              if (!name) {
+                const a3 = geo.properties?.iso_a3_eh;
+                const geoName = geo.properties?.name;
+                name = alpha3Fallback[a3] ?? nameFallback[geoName] ?? null;
+                continent = alpha3ContinentFallback[a3] ?? nameContinentFallback[geoName] ?? null;
+              }
 
               if (name === 'United States of America' || name === 'Australia') return null;
               if (!name || !continent) {
@@ -279,6 +288,23 @@ const numericToName = {
   860:'Uzbekistan', 548:'Vanuatu', 862:'Venezuela', 704:'Vietnam',
   887:'Yemen', 894:'Zambia', 716:'Zimbabwe', 895:'Kosovo', 112:'Belarus',
   352:'Iceland', 372:'Ireland',
+};
+
+// Fallbacks for countries Natural Earth marks iso_n3 = -99
+const alpha3Fallback = {
+  'FRA': 'France',
+  'NOR': 'Norway',
+};
+const alpha3ContinentFallback = {
+  'FRA': 'Europe',
+  'NOR': 'Europe',
+};
+// Kosovo has iso_a3_eh = -99 too, so match by geo name
+const nameFallback = {
+  'Kosovo': 'Kosovo',
+};
+const nameContinentFallback = {
+  'Kosovo': 'Europe',
 };
 
 const numericToContinent = {
