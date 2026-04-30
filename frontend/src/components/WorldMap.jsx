@@ -25,7 +25,7 @@ const US_STATE_NAMES = {
   '72':'Puerto Rico','78':'U.S. Virgin Islands',
 };
 
-export default function WorldMap({ visits, onRefresh }) {
+export default function WorldMap({ visits, onRefresh, onAdminOpen }) {
   const [tooltip, setTooltip] = useState({ visible: false, x: 0, y: 0, lines: [] });
   const [clickTarget, setClickTarget] = useState(null);
 
@@ -60,6 +60,7 @@ export default function WorldMap({ visits, onRefresh }) {
 
   return (
     <div className="map-container">
+      <button className="map-gear-btn" onClick={onAdminOpen} title="Admin">⚙</button>
       <ComposableMap
         projection="geoNaturalEarth1"
         projectionConfig={{ scale: 160 }}

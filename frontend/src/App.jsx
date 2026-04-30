@@ -18,13 +18,12 @@ export default function App() {
       <header className="header">
         <h1>Things I've Done</h1>
         <nav>
-          <button className={tab === 'map' ? 'active' : ''} onClick={() => setTab('map')}>Map</button>
-          <button className={tab === 'admin' ? 'active' : ''} onClick={() => setTab('admin')}>Admin</button>
+          <button className={tab === 'map' ? 'active' : ''} onClick={() => setTab('map')}>Places I've Been</button>
           <button className={tab === 'bands' ? 'active' : ''} onClick={() => setTab('bands')}>Bands I've Seen</button>
         </nav>
       </header>
       <main className="main">
-        {tab === 'map' && <WorldMap visits={visits} onRefresh={fetchVisits} />}
+        {tab === 'map' && <WorldMap visits={visits} onRefresh={fetchVisits} onAdminOpen={() => setTab('admin')} />}
         {tab === 'admin' && <AdminPanel visits={visits} onRefresh={fetchVisits} />}
         {tab === 'bands' && <BandSearch />}
       </main>
