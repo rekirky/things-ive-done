@@ -4,7 +4,7 @@ import VisitModal from './VisitModal.jsx';
 import './WorldMap.css';
 
 // World and US data from CDN (world-atlas, us-atlas)
-const WORLD_URL = 'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-50m.json';
+const WORLD_URL = '/custom.geo-hr.json';
 const US_URL = 'https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json';
 // Australian state boundaries: georgique/world-geojson (GPL-3.0)
 // https://github.com/georgique/world-geojson
@@ -67,12 +67,24 @@ export default function WorldMap({ visits, onRefresh }) {
       >
         <ZoomableGroup>
 
-          {/* World countries */}
+          {/* World countries — custom.geo-hr.json uses properties.iso_n3 (zero-padded string) */}
           <Geographies geography={WORLD_URL}>
             {({ geographies }) => geographies.map(geo => {
-              const name = numericToName[geo.id];
-              if (!name) return null;
+              const name = numericToName[parseInt(geo.properties?.iso_n3)];
               if (name === 'United States of America' || name === 'Australia') return null;
+              if (!name) {
+                // Render unknown territories as plain gray (no interaction)
+                return (
+                  <Geography
+                    key={geo.rsmKey}
+                    geography={geo}
+                    fill="#444"
+                    stroke="#1a1a2e"
+                    strokeWidth={0.5}
+                    style={geoStyle}
+                  />
+                );
+              }
               const years = visitMap[name];
               const fill = visitedCountries.has(name) ? '#e94560' : '#444';
               return (
