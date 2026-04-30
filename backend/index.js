@@ -81,22 +81,54 @@ app.get('/api/spotify/artist', async (req, res) => {
     const artist = data.artists?.items?.[0];
     if (!artist) return res.status(404).json({ error: 'Artist not found' });
 
-    // Images are sorted largest first; pick smallest available for thumbnail
     const images = artist.images || [];
-    const image = images[images.length - 1] || images[0] || null;
+    const image = images[0] || null;
 
     res.json({
       id: artist.id,
       name: artist.name,
       image_url: image?.url || null,
-      image_width: image?.width || null,
-      image_height: image?.height || null,
       genres: artist.genres,
       popularity: artist.popularity,
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+});
+
+// GET all concerts
+app.get('/api/concerts', (req, res) => {
+  const rows = db.prepare('SELECT * FROM concerts ORDER BY year DESC, band_name ASC').all();
+  res.json(rows.map(c => ({
+    ...c,
+    attendees: c.attendees ? JSON.parse(c.attendees) : [],
+    spotify_genres: c.spotify_genres ? JSON.parse(c.spotify_genres) : [],
+  })));
+});
+
+// POST new concert
+app.post('/api/concerts', (req, res) => {
+  const { band_name, spotify_id, spotify_image, spotify_genres, year, location, attendees, notes } = req.body;
+  if (!band_name || !year) return res.status(400).json({ error: 'band_name and year required' });
+  const result = db.prepare(
+    'INSERT INTO concerts (band_name, spotify_id, spotify_image, spotify_genres, year, location, attendees, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+  ).run(
+    band_name,
+    spotify_id || null,
+    spotify_image || null,
+    spotify_genres?.length ? JSON.stringify(spotify_genres) : null,
+    year,
+    location || null,
+    attendees?.length ? JSON.stringify(attendees) : null,
+    notes || null
+  );
+  res.status(201).json({ id: result.lastInsertRowid });
+});
+
+// DELETE a concert
+app.delete('/api/concerts/:id', (req, res) => {
+  db.prepare('DELETE FROM concerts WHERE id = ?').run(req.params.id);
+  res.status(204).end();
 });
 
 // Fallback to frontend for SPA routing

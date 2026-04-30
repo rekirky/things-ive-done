@@ -1,0 +1,182 @@
+.bands-seen {
+  flex: 1;
+  padding: 1.5rem 2rem;
+  background: #0d1117;
+  overflow-y: auto;
+}
+
+.bands-seen__toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.bands-seen__filters {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.bands-seen__controls {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.bands-seen__controls select {
+  background: #16213e;
+  border: 1px solid #0f3460;
+  color: #e0e0e0;
+  border-radius: 4px;
+  padding: 0.35rem 0.6rem;
+  font-size: 0.85rem;
+}
+
+.add-concert-btn {
+  padding: 0.4rem 1rem;
+  background: #e94560;
+  border: none;
+  color: #fff;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+.add-concert-btn:hover { background: #c0392b; }
+
+.attendee-tag {
+  padding: 0.25rem 0.75rem;
+  border: 1px solid #0f3460;
+  background: transparent;
+  color: #aaa;
+  border-radius: 20px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  transition: all 0.15s;
+}
+.attendee-tag:hover { border-color: #e94560; color: #e0e0e0; }
+.attendee-tag.active { background: #e94560; border-color: #e94560; color: #fff; }
+.attendee-tag.small {
+  font-size: 0.7rem;
+  padding: 0.12rem 0.5rem;
+  cursor: default;
+  pointer-events: none;
+}
+
+.clear-filter {
+  background: none;
+  border: none;
+  color: #666;
+  font-size: 0.75rem;
+  cursor: pointer;
+  text-decoration: underline;
+}
+.clear-filter:hover { color: #aaa; }
+
+.bands-seen__count {
+  font-size: 0.8rem;
+  color: #555;
+  margin-bottom: 1rem;
+}
+
+.concerts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+.concerts-empty {
+  color: #555;
+  font-size: 0.9rem;
+  grid-column: 1 / -1;
+  padding: 2rem 0;
+}
+
+.concert-card {
+  background: #16213e;
+  border: 1px solid #0f3460;
+  border-radius: 8px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transition: border-color 0.2s, transform 0.15s;
+}
+.concert-card:hover { border-color: #e94560; transform: translateY(-2px); }
+
+.concert-card__img-wrap {
+  width: 100%;
+  aspect-ratio: 1;
+  overflow: hidden;
+  background: #0d1117;
+}
+.concert-card__img { width: 100%; height: 100%; object-fit: cover; }
+
+.concert-card__body {
+  padding: 0.75rem;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.concert-card__top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.3rem;
+}
+
+.concert-card__name {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #e0e0e0;
+  margin: 0;
+  line-height: 1.3;
+}
+.concert-card__name a { color: #e0e0e0; text-decoration: none; }
+.concert-card__name a:hover { color: #1db954; }
+
+.concert-card__del {
+  background: none;
+  border: none;
+  color: #444;
+  cursor: pointer;
+  font-size: 1.1rem;
+  line-height: 1;
+  padding: 0;
+  flex-shrink: 0;
+}
+.concert-card__del:hover { color: #e94560; }
+
+.concert-card__meta {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  font-size: 0.8rem;
+}
+.concert-card__year { color: #e94560; font-weight: 600; }
+.concert-card__loc { color: #777; }
+
+.concert-card__genres { display: flex; flex-wrap: wrap; gap: 0.3rem; }
+
+.genre-tag {
+  font-size: 0.68rem;
+  color: #777;
+  background: #0d1117;
+  border-radius: 3px;
+  padding: 0.1rem 0.4rem;
+}
+
+.concert-card__attendees { display: flex; flex-wrap: wrap; gap: 0.3rem; }
+
+.concert-card__notes {
+  font-size: 0.78rem;
+  color: #777;
+  margin: 0;
+  font-style: italic;
+  line-height: 1.4;
+}

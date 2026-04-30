@@ -17,4 +17,19 @@ db.exec(`
   )
 `);
 
+db.exec(`
+  CREATE TABLE IF NOT EXISTS concerts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    band_name TEXT NOT NULL,
+    spotify_id TEXT,
+    spotify_image TEXT,
+    spotify_genres TEXT,
+    year INTEGER NOT NULL,
+    location TEXT,
+    attendees TEXT,
+    notes TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )
+`);
+
 module.exports = db;

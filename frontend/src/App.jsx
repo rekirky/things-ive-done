@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import WorldMap from './components/WorldMap.jsx';
 import AdminPanel from './components/AdminPanel.jsx';
-import BandSearch from './components/BandSearch.jsx';
+import BandsSeen from './components/BandsSeen.jsx';
 import './App.css';
 
 export default function App() {
@@ -25,7 +25,7 @@ export default function App() {
       <main className="main">
         {tab === 'map' && <WorldMap visits={visits} onRefresh={fetchVisits} onAdminOpen={() => setTab('admin')} />}
         {tab === 'admin' && <AdminPanel visits={visits} onRefresh={fetchVisits} />}
-        {tab === 'bands' && <BandSearch />}
+        {tab === 'bands' && <BandsSeen />}
       </main>
     </div>
   );
