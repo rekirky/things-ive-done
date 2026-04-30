@@ -140,7 +140,13 @@
 .concert-card__name a { color: #e0e0e0; text-decoration: none; }
 .concert-card__name a:hover { color: #1db954; }
 
-.concert-card__del {
+.concert-card__actions {
+  display: flex;
+  gap: 0.25rem;
+  flex-shrink: 0;
+}
+
+.concert-card__edit, .concert-card__del {
   background: none;
   border: none;
   color: #444;
@@ -148,8 +154,8 @@
   font-size: 1.1rem;
   line-height: 1;
   padding: 0;
-  flex-shrink: 0;
 }
+.concert-card__edit:hover { color: #aaa; }
 .concert-card__del:hover { color: #e94560; }
 
 .concert-card__meta {

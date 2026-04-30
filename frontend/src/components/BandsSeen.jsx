@@ -7,6 +7,7 @@ const PRESET_ATTENDEES = ['Jon', 'Mel', 'Adam', 'Tegan'];
 export default function BandsSeen() {
   const [concerts, setConcerts] = useState([]);
   const [showAdd, setShowAdd] = useState(false);
+  const [editConcert, setEditConcert] = useState(null);
   const [filterAttendees, setFilterAttendees] = useState([]);
   const [sortBy, setSortBy] = useState('year-desc');
 
@@ -69,7 +70,7 @@ export default function BandsSeen() {
 
       <div className="concerts-grid">
         {filtered.map(concert => (
-          <ConcertCard key={concert.id} concert={concert} onDelete={fetchConcerts} />
+          <ConcertCard key={concert.id} concert={concert} onDelete={fetchConcerts} onEdit={setEditConcert} />
         ))}
         {filtered.length === 0 && (
           <div className="concerts-empty">No concerts yet. Add one!</div>
@@ -82,11 +83,18 @@ export default function BandsSeen() {
           onClose={() => setShowAdd(false)}
         />
       )}
+      {editConcert && (
+        <AddConcertModal
+          concert={editConcert}
+          onSave={() => { setEditConcert(null); fetchConcerts(); }}
+          onClose={() => setEditConcert(null)}
+        />
+      )}
     </div>
   );
 }
 
-function ConcertCard({ concert, onDelete }) {
+function ConcertCard({ concert, onDelete, onEdit }) {
   const handleDelete = async () => {
     if (!confirm(`Remove ${concert.band_name}?`)) return;
     await fetch(`/api/concerts/${concert.id}`, { method: 'DELETE' });
@@ -113,7 +121,10 @@ function ConcertCard({ concert, onDelete }) {
               </a>
             ) : concert.band_name}
           </h3>
-          <button className="concert-card__del" onClick={handleDelete} title="Remove">×</button>
+          <div className="concert-card__actions">
+            <button className="concert-card__edit" onClick={() => onEdit(concert)} title="Edit">✎</button>
+            <button className="concert-card__del" onClick={handleDelete} title="Remove">×</button>
+          </div>
         </div>
 
         <div className="concert-card__meta">

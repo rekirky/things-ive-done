@@ -3,16 +3,21 @@ import './AddConcertModal.css';
 
 const PRESET_ATTENDEES = ['Jon', 'Mel', 'Adam', 'Tegan'];
 
-export default function AddConcertModal({ onSave, onClose }) {
-  const [bandQuery, setBandQuery] = useState('');
-  const [spotifyResult, setSpotifyResult] = useState(null);
+export default function AddConcertModal({ onSave, onClose, concert }) {
+  const isEdit = Boolean(concert);
+  const [bandQuery, setBandQuery] = useState(concert?.band_name || '');
+  const [spotifyResult, setSpotifyResult] = useState(
+    concert?.spotify_id ? { id: concert.spotify_id, name: concert.band_name, image_url: concert.spotify_image, genres: concert.spotify_genres } : null
+  );
   const [searching, setSearching] = useState(false);
-  const [year, setYear] = useState(new Date().getFullYear());
-  const [location, setLocation] = useState('');
-  const [attendees, setAttendees] = useState([]);
+  const [year, setYear] = useState(concert?.year || new Date().getFullYear());
+  const [location, setLocation] = useState(concert?.location || '');
+  const [attendees, setAttendees] = useState(concert?.attendees || []);
   const [customAttendee, setCustomAttendee] = useState('');
-  const [extraAttendees, setExtraAttendees] = useState([]);
-  const [notes, setNotes] = useState('');
+  const [extraAttendees, setExtraAttendees] = useState(
+    (concert?.attendees || []).filter(a => !PRESET_ATTENDEES.includes(a))
+  );
+  const [notes, setNotes] = useState(concert?.notes || '');
   const [saving, setSaving] = useState(false);
   const debounceRef = useRef(null);
 
@@ -49,19 +54,20 @@ export default function AddConcertModal({ onSave, onClose }) {
   const handleSave = async () => {
     if (!bandQuery.trim() || !year) return;
     setSaving(true);
-    await fetch('/api/concerts', {
-      method: 'POST',
+    const payload = {
+      band_name: spotifyResult?.name || bandQuery.trim(),
+      spotify_id: spotifyResult?.id || null,
+      spotify_image: spotifyResult?.image_url || null,
+      spotify_genres: spotifyResult?.genres || [],
+      year: parseInt(year),
+      location: location.trim() || null,
+      attendees,
+      notes: notes.trim() || null,
+    };
+    await fetch(isEdit ? `/api/concerts/${concert.id}` : '/api/concerts', {
+      method: isEdit ? 'PUT' : 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        band_name: spotifyResult?.name || bandQuery.trim(),
-        spotify_id: spotifyResult?.id || null,
-        spotify_image: spotifyResult?.image_url || null,
-        spotify_genres: spotifyResult?.genres || [],
-        year: parseInt(year),
-        location: location.trim() || null,
-        attendees,
-        notes: notes.trim() || null,
-      }),
+      body: JSON.stringify(payload),
     });
     setSaving(false);
     onSave();
@@ -73,7 +79,7 @@ export default function AddConcertModal({ onSave, onClose }) {
     <div className="modal-overlay" onClick={onClose}>
       <div className="acm" onClick={e => e.stopPropagation()}>
         <div className="acm__header">
-          <h2>Add Concert</h2>
+          <h2>{isEdit ? 'Edit Concert' : 'Add Concert'}</h2>
           <button className="acm__close" onClick={onClose}>×</button>
         </div>
 
@@ -143,7 +149,7 @@ export default function AddConcertModal({ onSave, onClose }) {
         <div className="acm__actions">
           <button onClick={onClose}>Cancel</button>
           <button className="acm__save" onClick={handleSave} disabled={saving || !bandQuery.trim()}>
-            {saving ? 'Saving...' : 'Save'}
+            {saving ? 'Saving...' : isEdit ? 'Update' : 'Save'}
           </button>
         </div>
       </div>

@@ -125,6 +125,26 @@ app.post('/api/concerts', (req, res) => {
   res.status(201).json({ id: result.lastInsertRowid });
 });
 
+// PUT update a concert
+app.put('/api/concerts/:id', (req, res) => {
+  const { band_name, spotify_id, spotify_image, spotify_genres, year, location, attendees, notes } = req.body;
+  if (!band_name || !year) return res.status(400).json({ error: 'band_name and year required' });
+  db.prepare(
+    'UPDATE concerts SET band_name=?, spotify_id=?, spotify_image=?, spotify_genres=?, year=?, location=?, attendees=?, notes=? WHERE id=?'
+  ).run(
+    band_name,
+    spotify_id || null,
+    spotify_image || null,
+    spotify_genres?.length ? JSON.stringify(spotify_genres) : null,
+    year,
+    location || null,
+    attendees?.length ? JSON.stringify(attendees) : null,
+    notes || null,
+    req.params.id
+  );
+  res.status(200).json({ id: parseInt(req.params.id) });
+});
+
 // DELETE a concert
 app.delete('/api/concerts/:id', (req, res) => {
   db.prepare('DELETE FROM concerts WHERE id = ?').run(req.params.id);
