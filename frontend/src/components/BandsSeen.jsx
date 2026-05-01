@@ -176,6 +176,13 @@ function BandGroupCard({ group, onDelete, onEdit }) {
                 </a>
               ) : latest.band_name}
             </h3>
+            {count === 1 && (
+              <button
+                className="concert-card__edit"
+                onClick={e => { e.stopPropagation(); onEdit(latest); }}
+                title="Edit"
+              >✎</button>
+            )}
           </div>
 
           <div className="concert-card__meta">

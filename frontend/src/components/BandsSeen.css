@@ -222,16 +222,19 @@
 .concert-card__name a { color: #e0e0e0; text-decoration: none; }
 .concert-card__name a:hover { color: #1db954; }
 
+.concert-card__edit,
 .concert-card__del {
   background: none;
   border: none;
-  color: #444;
   cursor: pointer;
   font-size: 1.1rem;
   line-height: 1;
   padding: 0;
   flex-shrink: 0;
 }
+.concert-card__edit { color: #444; }
+.concert-card__edit:hover { color: #4a90d9; }
+.concert-card__del { color: #444; }
 .concert-card__del:hover { color: #e94560; }
 
 .concert-card__meta {
