@@ -114,6 +114,7 @@ export default function BandsSeen() {
 
       {showAdd && (
         <AddConcertModal
+          knownAttendees={allAttendees}
           onSave={() => { setShowAdd(false); fetchConcerts(); }}
           onClose={() => setShowAdd(false)}
         />
@@ -121,6 +122,7 @@ export default function BandsSeen() {
       {editConcert && (
         <AddConcertModal
           concert={editConcert}
+          knownAttendees={allAttendees}
           onSave={() => { setEditConcert(null); fetchConcerts(); }}
           onClose={() => setEditConcert(null)}
         />

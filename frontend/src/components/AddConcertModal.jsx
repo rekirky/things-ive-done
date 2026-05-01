@@ -3,7 +3,7 @@ import './AddConcertModal.css';
 
 const PRESET_ATTENDEES = ['Jon', 'Mel', 'Adam', 'Tegan'];
 
-export default function AddConcertModal({ onSave, onClose, concert }) {
+export default function AddConcertModal({ onSave, onClose, concert, knownAttendees = PRESET_ATTENDEES }) {
   const isEdit = Boolean(concert);
   const [bandQuery, setBandQuery] = useState(concert?.band_name || '');
   const [spotifyResult, setSpotifyResult] = useState(
@@ -14,9 +14,7 @@ export default function AddConcertModal({ onSave, onClose, concert }) {
   const [location, setLocation] = useState(concert?.location || '');
   const [attendees, setAttendees] = useState(concert?.attendees || []);
   const [customAttendee, setCustomAttendee] = useState('');
-  const [extraAttendees, setExtraAttendees] = useState(
-    (concert?.attendees || []).filter(a => !PRESET_ATTENDEES.includes(a))
-  );
+  const [extraAttendees, setExtraAttendees] = useState([]);
   const [notes, setNotes] = useState(concert?.notes || '');
   const [saving, setSaving] = useState(false);
   const debounceRef = useRef(null);
@@ -45,7 +43,7 @@ export default function AddConcertModal({ onSave, onClose, concert }) {
   const addCustomAttendee = () => {
     const name = customAttendee.trim();
     if (!name) return;
-    if (![...PRESET_ATTENDEES, ...extraAttendees].includes(name))
+    if (!allAttendees.includes(name))
       setExtraAttendees(prev => [...prev, name]);
     if (!attendees.includes(name)) setAttendees(prev => [...prev, name]);
     setCustomAttendee('');
@@ -73,7 +71,7 @@ export default function AddConcertModal({ onSave, onClose, concert }) {
     onSave();
   };
 
-  const allAttendees = [...PRESET_ATTENDEES, ...extraAttendees];
+  const allAttendees = [...new Set([...knownAttendees, ...extraAttendees])];
 
   return (
     <div className="modal-overlay" onClick={onClose}>
