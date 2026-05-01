@@ -305,6 +305,7 @@
 
 .concert-row__attendees { display: flex; flex-wrap: wrap; gap: 0.25rem; }
 
+.concert-row__edit,
 .concert-row__del {
   background: none;
   border: none;
@@ -315,7 +316,8 @@
   padding: 0;
   flex-shrink: 0;
 }
-.concert-row__del:hover { color: #e94560; }
+.concert-row__edit:hover { color: #4a90d9; }
+.concert-row__del:hover  { color: #e94560; }
 
 .concert-row__notes {
   width: 100%;
