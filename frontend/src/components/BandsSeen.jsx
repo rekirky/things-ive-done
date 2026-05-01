@@ -194,7 +194,7 @@ function BandGroupCard({ group, onDelete, onEdit }) {
             <h3 className="concert-card__name">
               {latest.spotify_id ? (
                 <a
-                  href={`https://open.spotify.com/artist/${latest.spotify_id}`}
+                  href={`spotify:artist:${latest.spotify_id}`}
                   target="_blank"
                   rel="noreferrer"
                   onClick={e => e.stopPropagation()}
