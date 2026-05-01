@@ -1,13 +1,10 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useRef } from 'react';
 import { ComposableMap, Geographies, Geography, ZoomableGroup } from 'react-simple-maps';
 import VisitModal from './VisitModal.jsx';
 import './WorldMap.css';
 
-// World and US data from CDN (world-atlas, us-atlas)
 const WORLD_URL = '/custom.geo-hr.json';
 const US_URL = 'https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json';
-// Australian state boundaries: georgique/world-geojson (GPL-3.0)
-// https://github.com/georgique/world-geojson
 const AUS_URL = '/aus-states.geojson';
 
 const US_STATE_NAMES = {
@@ -25,9 +22,51 @@ const US_STATE_NAMES = {
   '72':'Puerto Rico','78':'U.S. Virgin Islands',
 };
 
+const CONTINENTS = {
+  'Africa':        { visited: '#d4a017', unvisited: '#2d2508' },
+  'Asia':          { visited: '#e07b39', unvisited: '#2d1a0a' },
+  'Europe':        { visited: '#4a90d9', unvisited: '#0e2035' },
+  'North America': { visited: '#27ae60', unvisited: '#0a2010' },
+  'South America': { visited: '#8e44ad', unvisited: '#1e0a2a' },
+  'Oceania':       { visited: '#16a085', unvisited: '#071e18' },
+};
+
+function lighten(hex) {
+  const n = parseInt(hex.slice(1), 16);
+  const r = Math.min(255, ((n >> 16) & 0xff) + 40);
+  const g = Math.min(255, ((n >> 8)  & 0xff) + 40);
+  const b = Math.min(255, ( n        & 0xff) + 40);
+  return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
+}
+
 export default function WorldMap({ visits, onRefresh, onAdminOpen }) {
   const [tooltip, setTooltip] = useState({ visible: false, x: 0, y: 0, lines: [] });
   const [clickTarget, setClickTarget] = useState(null);
+  const [zoom, setZoom] = useState(1);
+  const [center, setCenter] = useState([0, 20]);
+  const rafRef = useRef(null);
+  const zoomRef = useRef(1);
+
+  const smoothZoom = useCallback((target) => {
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    const start = zoomRef.current;
+    const diff = target - start;
+    const duration = 280;
+    const t0 = performance.now();
+    const tick = (now) => {
+      const t = Math.min((now - t0) / duration, 1);
+      const eased = 1 - Math.pow(1 - t, 3);
+      const next = Math.max(1, Math.min(24, start + diff * eased));
+      zoomRef.current = next;
+      setZoom(next);
+      if (t < 1) rafRef.current = requestAnimationFrame(tick);
+    };
+    rafRef.current = requestAnimationFrame(tick);
+  }, []);
+
+  const zoomIn  = () => smoothZoom(Math.min(zoomRef.current * 2, 24));
+  const zoomOut = () => smoothZoom(Math.max(zoomRef.current / 2, 1));
+  const zoomReset = () => { smoothZoom(1); setCenter([0, 20]); };
 
   const visitMap = useMemo(() => {
     const map = {};
@@ -40,6 +79,25 @@ export default function WorldMap({ visits, onRefresh, onAdminOpen }) {
   }, [visits]);
 
   const visitedCountries = useMemo(() => new Set(visits.map(v => v.country)), [visits]);
+
+  // Continent stats: total and visited per continent
+  const continentStats = useMemo(() => {
+    const stats = {};
+    Object.keys(CONTINENTS).forEach(c => { stats[c] = { total: 0, visited: 0 }; });
+
+    Object.entries(numericToContinent).forEach(([id, continent]) => {
+      if (!stats[continent]) return;
+      const name = numericToName[parseInt(id)];
+      if (!name) return;
+      stats[continent].total += 1;
+      // Normalise USA name mismatch
+      const lookupName = name === 'United States of America' ? 'United States' : name;
+      if (visitedCountries.has(lookupName) || visitedCountries.has(name)) {
+        stats[continent].visited += 1;
+      }
+    });
+    return stats;
+  }, [visitedCountries]);
 
   const showTooltip = useCallback((e, name, years) => {
     setTooltip({
@@ -58,44 +116,68 @@ export default function WorldMap({ visits, onRefresh, onAdminOpen }) {
     pressed: { outline: 'none' },
   };
 
+  const getFill = (continent, visited) =>
+    CONTINENTS[continent]?.[visited ? 'visited' : 'unvisited'] ?? (visited ? '#e94560' : '#2a2a2a');
+
+  const getHoverFill = (continent, visited) =>
+    lighten(getFill(continent, visited));
+
   return (
     <div className="map-container">
       <button className="map-gear-btn" onClick={onAdminOpen} title="Admin">⚙</button>
+
+      <div className="map-zoom-controls">
+        <button onClick={zoomIn}  title="Zoom in">+</button>
+        <button onClick={zoomReset} title="Reset view">⌂</button>
+        <button onClick={zoomOut} title="Zoom out">−</button>
+      </div>
+
       <ComposableMap
         projection="geoNaturalEarth1"
         projectionConfig={{ scale: 160 }}
         style={{ width: '100%', height: 'calc(100vh - 64px)' }}
       >
-        <ZoomableGroup>
+        <ZoomableGroup
+          zoom={zoom}
+          center={center}
+          onMoveEnd={({ coordinates, zoom: z }) => {
+            setCenter(coordinates);
+            zoomRef.current = z;
+            setZoom(z);
+          }}
+        >
 
-          {/* World countries — custom.geo-hr.json uses properties.iso_n3 (zero-padded string) */}
           <Geographies geography={WORLD_URL}>
             {({ geographies }) => geographies.map(geo => {
-              const name = numericToName[parseInt(geo.properties?.iso_n3)];
-              if (name === 'United States of America' || name === 'Australia') return null;
+              const numId = parseInt(geo.properties?.iso_n3);
+              let name = numericToName[numId];
+              let continent = numericToContinent[numId];
+
+              // Natural Earth assigns iso_n3 = -99 to France, Norway, Kosovo etc.
+              // Fall back to iso_a3_eh or geo name for these.
               if (!name) {
-                // Render unknown territories as plain gray (no interaction)
+                const a3 = geo.properties?.iso_a3_eh;
+                const geoName = geo.properties?.name;
+                name = alpha3Fallback[a3] ?? nameFallback[geoName] ?? null;
+                continent = alpha3ContinentFallback[a3] ?? nameContinentFallback[geoName] ?? null;
+              }
+
+              if (name === 'United States of America' || name === 'Australia') return null;
+              if (!name || !continent) {
                 return (
-                  <Geography
-                    key={geo.rsmKey}
-                    geography={geo}
-                    fill="#444"
-                    stroke="#1a1a2e"
-                    strokeWidth={0.5}
-                    style={geoStyle}
-                  />
+                  <Geography key={geo.rsmKey} geography={geo}
+                    fill="#222" stroke="#1a1a2e" strokeWidth={0.5} style={geoStyle} />
                 );
               }
+
+              const visited = visitedCountries.has(name);
               const years = visitMap[name];
-              const fill = visitedCountries.has(name) ? '#e94560' : '#444';
+              const fill = getFill(continent, visited);
               return (
                 <Geography
-                  key={geo.rsmKey}
-                  geography={geo}
-                  fill={fill}
-                  stroke="#1a1a2e"
-                  strokeWidth={0.5}
-                  style={{ ...geoStyle, hover: { ...geoStyle.hover, fill: years ? '#c0392b' : '#666' } }}
+                  key={geo.rsmKey} geography={geo}
+                  fill={fill} stroke="#1a1a2e" strokeWidth={0.5}
+                  style={{ ...geoStyle, hover: { ...geoStyle.hover, fill: getHoverFill(continent, visited) } }}
                   onMouseMove={e => showTooltip(e, name, years)}
                   onMouseLeave={hideTooltip}
                   onClick={() => setClickTarget({ country: name, state: null, displayName: name })}
@@ -104,7 +186,6 @@ export default function WorldMap({ visits, onRefresh, onAdminOpen }) {
             })}
           </Geographies>
 
-          {/* US states */}
           <Geographies geography={US_URL}>
             {({ geographies }) => geographies.map(geo => {
               const fips = String(geo.id).padStart(2, '0');
@@ -112,15 +193,13 @@ export default function WorldMap({ visits, onRefresh, onAdminOpen }) {
               if (!stateName) return null;
               const key = `United States::${stateName}`;
               const years = visitMap[key];
-              const fill = years ? '#e94560' : '#444';
+              const visited = Boolean(years);
+              const fill = getFill('North America', visited);
               return (
                 <Geography
-                  key={geo.rsmKey}
-                  geography={geo}
-                  fill={fill}
-                  stroke="#1a1a2e"
-                  strokeWidth={0.3}
-                  style={{ ...geoStyle, hover: { ...geoStyle.hover, fill: years ? '#c0392b' : '#666' } }}
+                  key={geo.rsmKey} geography={geo}
+                  fill={fill} stroke="#1a1a2e" strokeWidth={0.3}
+                  style={{ ...geoStyle, hover: { ...geoStyle.hover, fill: getHoverFill('North America', visited) } }}
                   onMouseMove={e => showTooltip(e, `${stateName}, USA`, years)}
                   onMouseLeave={hideTooltip}
                   onClick={() => setClickTarget({ country: 'United States', state: stateName, displayName: `${stateName}, USA` })}
@@ -129,22 +208,19 @@ export default function WorldMap({ visits, onRefresh, onAdminOpen }) {
             })}
           </Geographies>
 
-          {/* Australian states — georgique/world-geojson (GPL-3.0) */}
           <Geographies geography={AUS_URL}>
             {({ geographies }) => geographies.map(geo => {
               const stateName = geo.properties?.STATE_NAME;
               if (!stateName) return null;
               const key = `Australia::${stateName}`;
               const years = visitMap[key];
-              const fill = years ? '#e94560' : '#444';
+              const visited = Boolean(years);
+              const fill = getFill('Oceania', visited);
               return (
                 <Geography
-                  key={geo.rsmKey}
-                  geography={geo}
-                  fill={fill}
-                  stroke="#1a1a2e"
-                  strokeWidth={0.3}
-                  style={{ ...geoStyle, hover: { ...geoStyle.hover, fill: years ? '#c0392b' : '#666' } }}
+                  key={geo.rsmKey} geography={geo}
+                  fill={fill} stroke="#1a1a2e" strokeWidth={0.3}
+                  style={{ ...geoStyle, hover: { ...geoStyle.hover, fill: getHoverFill('Oceania', visited) } }}
                   onMouseMove={e => showTooltip(e, `${stateName}, Australia`, years)}
                   onMouseLeave={hideTooltip}
                   onClick={() => setClickTarget({ country: 'Australia', state: stateName, displayName: `${stateName}, Australia` })}
@@ -155,6 +231,8 @@ export default function WorldMap({ visits, onRefresh, onAdminOpen }) {
 
         </ZoomableGroup>
       </ComposableMap>
+
+      <ContinentPanel stats={continentStats} />
 
       {tooltip.visible && (
         <div className="map-tooltip" style={{ left: tooltip.x, top: tooltip.y }}>
@@ -172,6 +250,36 @@ export default function WorldMap({ visits, onRefresh, onAdminOpen }) {
     </div>
   );
 }
+
+function ContinentPanel({ stats }) {
+  return (
+    <div className="continent-panel">
+      {Object.entries(CONTINENTS).map(([name, colors]) => {
+        const { total, visited } = stats[name] || { total: 0, visited: 0 };
+        const pct = total > 0 ? Math.round((visited / total) * 100) : 0;
+        return (
+          <div key={name} className="continent-row">
+            <div className="continent-row__label" style={{ color: colors.visited }}>{name}</div>
+            <div className="continent-row__bar-wrap">
+              <div className="continent-row__bar-bg">
+                <div
+                  className="continent-row__bar-fill"
+                  style={{ width: `${pct}%`, background: colors.visited }}
+                />
+              </div>
+            </div>
+            <div className="continent-row__nums">
+              <span>{visited}/{total}</span>
+              <span className="continent-row__pct">{pct}%</span>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── Data ────────────────────────────────────────────────────────────────────
 
 const numericToName = {
   4:'Afghanistan', 8:'Albania', 12:'Algeria', 20:'Andorra', 24:'Angola',
@@ -218,4 +326,68 @@ const numericToName = {
   826:'United Kingdom', 840:'United States of America', 858:'Uruguay',
   860:'Uzbekistan', 548:'Vanuatu', 862:'Venezuela', 704:'Vietnam',
   887:'Yemen', 894:'Zambia', 716:'Zimbabwe', 895:'Kosovo', 112:'Belarus',
+  352:'Iceland', 372:'Ireland',
+};
+
+// Fallbacks for countries Natural Earth marks iso_n3 = -99
+const alpha3Fallback = {
+  'FRA': 'France',
+  'NOR': 'Norway',
+};
+const alpha3ContinentFallback = {
+  'FRA': 'Europe',
+  'NOR': 'Europe',
+};
+// Kosovo has iso_a3_eh = -99 too, so match by geo name
+const nameFallback = {
+  'Kosovo': 'Kosovo',
+};
+const nameContinentFallback = {
+  'Kosovo': 'Europe',
+};
+
+const numericToContinent = {
+  // Africa
+  12:'Africa', 24:'Africa', 204:'Africa', 72:'Africa', 854:'Africa', 108:'Africa',
+  132:'Africa', 120:'Africa', 140:'Africa', 148:'Africa', 174:'Africa', 178:'Africa',
+  180:'Africa', 262:'Africa', 818:'Africa', 226:'Africa', 232:'Africa', 748:'Africa',
+  231:'Africa', 266:'Africa', 270:'Africa', 288:'Africa', 324:'Africa', 624:'Africa',
+  384:'Africa', 404:'Africa', 426:'Africa', 430:'Africa', 434:'Africa', 450:'Africa',
+  454:'Africa', 466:'Africa', 478:'Africa', 480:'Africa', 504:'Africa', 508:'Africa',
+  516:'Africa', 562:'Africa', 566:'Africa', 646:'Africa', 678:'Africa', 686:'Africa',
+  690:'Africa', 694:'Africa', 706:'Africa', 710:'Africa', 728:'Africa', 729:'Africa',
+  834:'Africa', 768:'Africa', 788:'Africa', 800:'Africa', 894:'Africa', 716:'Africa',
+  706:'Africa', 710:'Africa',
+  // Asia
+  4:'Asia', 51:'Asia', 31:'Asia', 48:'Asia', 50:'Asia', 64:'Asia', 96:'Asia',
+  116:'Asia', 156:'Asia', 196:'Asia', 268:'Asia', 356:'Asia', 360:'Asia', 364:'Asia',
+  368:'Asia', 376:'Asia', 392:'Asia', 400:'Asia', 398:'Asia', 414:'Asia', 417:'Asia',
+  418:'Asia', 422:'Asia', 458:'Asia', 462:'Asia', 496:'Asia', 104:'Asia', 524:'Asia',
+  408:'Asia', 410:'Asia', 512:'Asia', 586:'Asia', 275:'Asia', 608:'Asia', 634:'Asia',
+  682:'Asia', 702:'Asia', 144:'Asia', 760:'Asia', 762:'Asia', 764:'Asia', 626:'Asia',
+  792:'Asia', 795:'Asia', 784:'Asia', 860:'Asia', 704:'Asia', 887:'Asia',
+  // Europe
+  8:'Europe', 20:'Europe', 40:'Europe', 112:'Europe', 56:'Europe', 70:'Europe',
+  100:'Europe', 191:'Europe', 203:'Europe', 208:'Europe', 233:'Europe', 246:'Europe',
+  250:'Europe', 276:'Europe', 300:'Europe', 348:'Europe', 352:'Europe', 372:'Europe',
+  380:'Europe', 895:'Europe', 428:'Europe', 438:'Europe', 440:'Europe', 442:'Europe',
+  470:'Europe', 498:'Europe', 492:'Europe', 499:'Europe', 528:'Europe', 807:'Europe',
+  578:'Europe', 616:'Europe', 620:'Europe', 642:'Europe', 643:'Europe', 674:'Europe',
+  688:'Europe', 703:'Europe', 705:'Europe', 724:'Europe', 752:'Europe', 756:'Europe',
+  804:'Europe', 826:'Europe',
+  // North America
+  28:'North America', 44:'North America', 52:'North America', 84:'North America',
+  124:'North America', 188:'North America', 192:'North America', 212:'North America',
+  214:'North America', 222:'North America', 308:'North America', 320:'North America',
+  332:'North America', 340:'North America', 388:'North America', 484:'North America',
+  558:'North America', 591:'North America', 659:'North America', 662:'North America',
+  670:'North America', 780:'North America', 840:'North America',
+  // South America
+  32:'South America', 68:'South America', 76:'South America', 152:'South America',
+  170:'South America', 218:'South America', 328:'South America', 600:'South America',
+  604:'South America', 740:'South America', 858:'South America', 862:'South America',
+  // Oceania
+  36:'Oceania', 242:'Oceania', 296:'Oceania', 584:'Oceania', 583:'Oceania',
+  520:'Oceania', 554:'Oceania', 585:'Oceania', 598:'Oceania', 882:'Oceania',
+  90:'Oceania', 776:'Oceania', 798:'Oceania', 548:'Oceania',
 };

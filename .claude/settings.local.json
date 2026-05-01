@@ -7,7 +7,8 @@
       "Bash(curl -s http://localhost:3001/api/visits)",
       "Bash(kill %1)",
       "Bash(pkill -f \"node.*index.js\")",
-      "PowerShell(Stop-Process -Name \"node\" -Force -ErrorAction SilentlyContinue)"
+      "PowerShell(Stop-Process -Name \"node\" -Force -ErrorAction SilentlyContinue)",
+      "Bash(python3 -c ' *)"
     ]
   }
 }

@@ -16,6 +16,7 @@ const MEDAL_EMOJI = { gold: '🥇', silver: '🥈', bronze: '🥉' };
 export default function BandsSeen() {
   const [concerts, setConcerts] = useState([]);
   const [showAdd, setShowAdd] = useState(false);
+  const [editConcert, setEditConcert] = useState(null);
   const [filterAttendees, setFilterAttendees] = useState([]);
   const [sortBy, setSortBy] = useState('year-desc');
 
@@ -100,8 +101,8 @@ export default function BandsSeen() {
       </div>
 
       <div className="concerts-grid">
-        {filteredGroups.map(group => (
-          <BandGroupCard key={group.latest.spotify_id || group.latest.band_name} group={group} onDelete={fetchConcerts} />
+        {filtered.map(concert => (
+          <ConcertCard key={concert.id} concert={concert} onDelete={fetchConcerts} />
         ))}
         {filteredGroups.length === 0 && (
           <div className="concerts-empty">No concerts yet. Add one!</div>
@@ -114,14 +115,23 @@ export default function BandsSeen() {
           onClose={() => setShowAdd(false)}
         />
       )}
+      {editConcert && (
+        <AddConcertModal
+          concert={editConcert}
+          onSave={() => { setEditConcert(null); fetchConcerts(); }}
+          onClose={() => setEditConcert(null)}
+        />
+      )}
     </div>
   );
 }
 
-function BandGroupCard({ group, onDelete }) {
-  const [expanded, setExpanded] = useState(false);
-  const { latest, all, count } = group;
-  const medal = getMedal(count);
+function ConcertCard({ concert, onDelete }) {
+  const handleDelete = async () => {
+    if (!confirm(`Remove ${concert.band_name}?`)) return;
+    await fetch(`/api/concerts/${concert.id}`, { method: 'DELETE' });
+    onDelete();
+  };
 
   return (
     <div className={`concert-card ${medal ? `concert-card--${medal}` : ''}`}>
@@ -130,40 +140,21 @@ function BandGroupCard({ group, onDelete }) {
           {MEDAL_EMOJI[medal]} ×{count}
         </div>
       )}
-      {count > 1 && !medal && (
-        <div className="count-badge">×{count}</div>
-      )}
-
-      <div
-        className={`concert-card__clickable${count > 1 ? ' concert-card__clickable--multi' : ''}`}
-        onClick={() => count > 1 && setExpanded(e => !e)}
-      >
-        {latest.spotify_image && (
-          <div className="concert-card__img-wrap">
-            <img src={latest.spotify_image} alt={latest.band_name} className="concert-card__img" />
-            {count > 1 && (
-              <div className="concert-card__img-overlay">
-                {expanded ? 'collapse' : `${count} shows ▾`}
-              </div>
-            )}
-          </div>
-        )}
-
-        <div className="concert-card__body">
-          <div className="concert-card__top">
-            <h3 className="concert-card__name">
-              {latest.spotify_id ? (
-                <a
-                  href={`https://open.spotify.com/artist/${latest.spotify_id}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  onClick={e => e.stopPropagation()}
-                >
-                  {latest.band_name}
-                </a>
-              ) : latest.band_name}
-            </h3>
-          </div>
+      <div className="concert-card__body">
+        <div className="concert-card__top">
+          <h3 className="concert-card__name">
+            {concert.spotify_id ? (
+              <a
+                href={`https://open.spotify.com/artist/${concert.spotify_id}`}
+                target="_blank"
+                rel="noreferrer"
+              >
+                {concert.band_name}
+              </a>
+            ) : concert.band_name}
+          </h3>
+          <button className="concert-card__del" onClick={handleDelete} title="Remove">×</button>
+        </div>
 
           <div className="concert-card__meta">
             <span className="concert-card__year">{latest.year}</span>
