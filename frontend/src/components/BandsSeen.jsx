@@ -70,7 +70,7 @@ export default function BandsSeen() {
     else if (sortBy === 'band-asc') list.sort((a, b) => a.latest.band_name.localeCompare(b.latest.band_name));
     else if (sortBy === 'most-seen') list.sort((a, b) => b.count - a.count || b.latest.year - a.latest.year);
     return list;
-  }, [groups, filterAttendees, sortBy]);
+  }, [groups, filterAttendees, filterMedal, filterYear, sortBy]);
 
   const totalConcerts = filteredGroups.reduce((n, g) => n + g.count, 0);
 
