@@ -10,6 +10,7 @@ export default function AddConcertModal({ onSave, onClose, concert, knownAttende
     concert?.spotify_id ? { id: concert.spotify_id, name: concert.band_name, image_url: concert.spotify_image, genres: concert.spotify_genres } : null
   );
   const [searching, setSearching] = useState(false);
+  const [spotifySkipped, setSpotifySkipped] = useState(false);
   const [year, setYear] = useState(concert?.year || new Date().getFullYear());
   const [location, setLocation] = useState(concert?.location || '');
   const [attendees, setAttendees] = useState(concert?.attendees || []);
@@ -20,7 +21,7 @@ export default function AddConcertModal({ onSave, onClose, concert, knownAttende
   const debounceRef = useRef(null);
 
   useEffect(() => {
-    if (!bandQuery.trim()) { setSpotifyResult(null); return; }
+    if (!bandQuery.trim() || spotifySkipped) { setSpotifyResult(null); return; }
     clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(async () => {
       setSearching(true);
@@ -35,7 +36,7 @@ export default function AddConcertModal({ onSave, onClose, concert, knownAttende
       }
     }, 500);
     return () => clearTimeout(debounceRef.current);
-  }, [bandQuery]);
+  }, [bandQuery, spotifySkipped]);
 
   const toggleAttendee = (person) =>
     setAttendees(prev => prev.includes(person) ? prev.filter(p => p !== person) : [...prev, person]);
@@ -90,15 +91,29 @@ export default function AddConcertModal({ onSave, onClose, concert, knownAttende
             autoFocus
           />
           {searching && <div className="acm__hint">Searching...</div>}
-          {spotifyResult && (
+          {spotifyResult && !spotifySkipped && (
             <div className="acm__spotify-match">
               {spotifyResult.image_url && <img src={spotifyResult.image_url} alt={spotifyResult.name} />}
-              <div>
+              <div className="acm__spotify-match__info">
                 <strong>{spotifyResult.name}</strong>
                 {spotifyResult.genres?.length > 0 && (
                   <div className="acm__spotify-genres">{spotifyResult.genres.slice(0, 3).join(', ')}</div>
                 )}
               </div>
+              <button
+                type="button"
+                className="acm__spotify-skip"
+                onClick={() => { setSpotifySkipped(true); setSpotifyResult(null); }}
+                title="Don't link Spotify"
+              >✕ Skip</button>
+            </div>
+          )}
+          {spotifySkipped && (
+            <div className="acm__hint">
+              No Spotify link.{' '}
+              <button type="button" className="acm__spotify-undo" onClick={() => setSpotifySkipped(false)}>
+                undo
+              </button>
             </div>
           )}
         </div>

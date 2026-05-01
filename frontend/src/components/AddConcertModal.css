@@ -94,7 +94,31 @@
   flex-shrink: 0;
 }
 
+.acm__spotify-match__info { flex: 1; min-width: 0; }
 .acm__spotify-genres { font-size: 0.75rem; color: #888; margin-top: 0.15rem; }
+
+.acm__spotify-skip {
+  background: none;
+  border: 1px solid #333;
+  color: #666;
+  border-radius: 4px;
+  padding: 0.2rem 0.5rem;
+  font-size: 0.75rem;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.acm__spotify-skip:hover { border-color: #e94560; color: #e94560; }
+
+.acm__spotify-undo {
+  background: none;
+  border: none;
+  color: #4a90d9;
+  cursor: pointer;
+  font-size: 0.78rem;
+  padding: 0;
+  text-decoration: underline;
+}
 
 .acm__attendees {
   display: flex;
