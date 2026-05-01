@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <radialGradient id="bg" cx="38%" cy="33%">
+      <stop offset="0%"   stop-color="#3b1275"/>
+      <stop offset="60%"  stop-color="#180830"/>
+      <stop offset="100%" stop-color="#05020d"/>
+    </radialGradient>
+    <linearGradient id="globe" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%"   stop-color="#d466ff"/>
+      <stop offset="100%" stop-color="#ff4d8d"/>
+    </linearGradient>
+    <linearGradient id="note" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%"   stop-color="#ff79c6"/>
+      <stop offset="100%" stop-color="#c47aff"/>
+    </linearGradient>
+    <linearGradient id="tid" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%"   stop-color="#ffffff"/>
+      <stop offset="45%"  stop-color="#ffb3e0"/>
+      <stop offset="100%" stop-color="#d480ff"/>
+    </linearGradient>
+    <clipPath id="gc">
+      <circle cx="256" cy="256" r="198"/>
+    </clipPath>
+  </defs>
+
+  <!-- Background -->
+  <rect width="512" height="512" rx="100" fill="url(#bg)"/>
+
+  <!-- Soft glow halo -->
+  <circle cx="256" cy="256" r="210" fill="none" stroke="url(#globe)" stroke-width="28" opacity="0.07"/>
+
+  <!-- Globe outer ring -->
+  <circle cx="256" cy="256" r="198" fill="none" stroke="url(#globe)" stroke-width="4" opacity="0.55"/>
+
+  <!-- Globe grid (clipped) -->
+  <g clip-path="url(#gc)" stroke="url(#globe)" fill="none" stroke-width="1.5" opacity="0.32">
+    <!-- Latitude lines -->
+    <ellipse cx="256" cy="256" rx="198" ry="50"/>  <!-- equator -->
+    <ellipse cx="256" cy="157" rx="171" ry="43"/>  <!-- 30°N -->
+    <ellipse cx="256" cy="85"  rx="99"  ry="25"/>  <!-- 60°N -->
+    <ellipse cx="256" cy="355" rx="171" ry="43"/>  <!-- 30°S -->
+    <ellipse cx="256" cy="427" rx="99"  ry="25"/>  <!-- 60°S -->
+    <!-- Meridians -->
+    <line x1="256" y1="58" x2="256" y2="454"/>
+    <ellipse cx="256" cy="256" rx="99"  ry="198"/>
+    <ellipse cx="256" cy="256" rx="171" ry="198"/>
+  </g>
+
+  <!-- Eighth note (background) -->
+  <g opacity="0.22" fill="url(#note)">
+    <ellipse cx="335" cy="348" rx="44" ry="30" transform="rotate(-18 335 348)"/>
+    <rect x="374" y="186" width="12" height="170" rx="6"/>
+    <path d="M386 186 C448 220 420 274 387 296" fill="none" stroke="url(#note)" stroke-width="14" stroke-linecap="round"/>
+  </g>
+
+  <!-- TID shadow -->
+  <text x="259" y="313"
+    font-family="'Arial Black', Arial, sans-serif"
+    font-size="148" font-weight="900" text-anchor="middle"
+    fill="#000" fill-opacity="0.45" letter-spacing="6">TID</text>
+
+  <!-- TID -->
+  <text x="256" y="310"
+    font-family="'Arial Black', Arial, sans-serif"
+    font-size="148" font-weight="900" text-anchor="middle"
+    fill="url(#tid)" letter-spacing="6">TID</text>
+</svg>

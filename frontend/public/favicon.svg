@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <defs>
+    <radialGradient id="bg" cx="38%" cy="33%">
+      <stop offset="0%"   stop-color="#3b1275"/>
+      <stop offset="100%" stop-color="#05020d"/>
+    </radialGradient>
+    <linearGradient id="tid" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%"   stop-color="#ffffff"/>
+      <stop offset="50%"  stop-color="#ffb3e0"/>
+      <stop offset="100%" stop-color="#d480ff"/>
+    </linearGradient>
+  </defs>
+  <rect width="32" height="32" rx="6" fill="url(#bg)"/>
+  <!-- Subtle globe ring -->
+  <circle cx="16" cy="16" r="13" fill="none" stroke="#d466ff" stroke-width="0.8" opacity="0.5"/>
+  <text x="16" y="21"
+    font-family="'Arial Black', Arial, sans-serif"
+    font-size="13" font-weight="900" text-anchor="middle"
+    fill="url(#tid)" letter-spacing="0.3">TID</text>
+</svg>
