@@ -18,6 +18,8 @@ export default function BandsSeen() {
   const [showAdd, setShowAdd] = useState(false);
   const [editConcert, setEditConcert] = useState(null);
   const [filterAttendees, setFilterAttendees] = useState([]);
+  const [filterMedal, setFilterMedal] = useState(null);
+  const [filterYear, setFilterYear] = useState('');
   const [sortBy, setSortBy] = useState('year-desc');
 
   const fetchConcerts = () =>
@@ -48,12 +50,21 @@ export default function BandsSeen() {
     });
   }, [concerts]);
 
+  const allYears = useMemo(() => {
+    const years = new Set(concerts.map(c => c.year));
+    return [...years].sort((a, b) => b - a);
+  }, [concerts]);
+
   const filteredGroups = useMemo(() => {
     let list = [...groups];
     if (filterAttendees.length > 0)
       list = list.filter(g =>
         g.all.some(c => filterAttendees.every(p => (c.attendees || []).includes(p)))
       );
+    if (filterMedal)
+      list = list.filter(g => getMedal(g.count) === filterMedal);
+    if (filterYear)
+      list = list.filter(g => g.all.some(c => c.year === parseInt(filterYear)));
     if (sortBy === 'year-desc') list.sort((a, b) => b.latest.year - a.latest.year);
     else if (sortBy === 'year-asc') list.sort((a, b) => a.all[a.all.length - 1].year - b.all[b.all.length - 1].year);
     else if (sortBy === 'band-asc') list.sort((a, b) => a.latest.band_name.localeCompare(b.latest.band_name));
@@ -81,6 +92,22 @@ export default function BandsSeen() {
           )}
         </div>
         <div className="bands-seen__controls">
+          <div className="medal-filters">
+            {['gold', 'silver', 'bronze'].map(m => (
+              <button
+                key={m}
+                className={`medal-filter medal-filter--${m} ${filterMedal === m ? 'active' : ''}`}
+                onClick={() => setFilterMedal(prev => prev === m ? null : m)}
+                title={m.charAt(0).toUpperCase() + m.slice(1)}
+              >
+                {MEDAL_EMOJI[m]}
+              </button>
+            ))}
+          </div>
+          <select value={filterYear} onChange={e => setFilterYear(e.target.value)}>
+            <option value="">All years</option>
+            {allYears.map(y => <option key={y} value={y}>{y}</option>)}
+          </select>
           <select value={sortBy} onChange={e => setSortBy(e.target.value)}>
             <option value="year-desc">Newest first</option>
             <option value="year-asc">Oldest first</option>
