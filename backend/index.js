@@ -37,7 +37,7 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
 
 // Serve frontend in production
 app.use(express.static(path.join(__dirname, '../frontend/dist')));
@@ -148,6 +148,72 @@ app.put('/api/concerts/:id', (req, res) => {
 // DELETE a concert
 app.delete('/api/concerts/:id', (req, res) => {
   db.prepare('DELETE FROM concerts WHERE id = ?').run(req.params.id);
+  res.status(204).end();
+});
+
+// GET timeline settings
+app.get('/api/timeline/settings', (req, res) => {
+  const row = db.prepare('SELECT * FROM timeline_settings WHERE id = 1').get();
+  res.json(row || { birthdate: null });
+});
+
+// POST timeline settings (upsert)
+app.post('/api/timeline/settings', (req, res) => {
+  const { birthdate } = req.body;
+  db.prepare(`
+    INSERT INTO timeline_settings (id, birthdate) VALUES (1, ?)
+    ON CONFLICT(id) DO UPDATE SET birthdate = excluded.birthdate
+  `).run(birthdate || null);
+  res.json({ birthdate });
+});
+
+// GET all timeline items
+app.get('/api/timeline/items', (req, res) => {
+  const items = db.prepare('SELECT * FROM timeline_items ORDER BY start_date ASC').all();
+  res.json(items.map(item => ({
+    ...item,
+    tags: item.tags ? JSON.parse(item.tags) : [],
+  })));
+});
+
+// POST new timeline item
+app.post('/api/timeline/items', (req, res) => {
+  const { title, description, start_date, end_date, tags, image } = req.body;
+  if (!title || !start_date) return res.status(400).json({ error: 'title and start_date required' });
+  const result = db.prepare(
+    'INSERT INTO timeline_items (title, description, start_date, end_date, tags, image) VALUES (?, ?, ?, ?, ?, ?)'
+  ).run(
+    title,
+    description || null,
+    start_date,
+    end_date || null,
+    tags?.length ? JSON.stringify(tags) : '[]',
+    image || null
+  );
+  res.status(201).json({ id: result.lastInsertRowid });
+});
+
+// PUT update timeline item
+app.put('/api/timeline/items/:id', (req, res) => {
+  const { title, description, start_date, end_date, tags, image } = req.body;
+  if (!title || !start_date) return res.status(400).json({ error: 'title and start_date required' });
+  db.prepare(
+    'UPDATE timeline_items SET title=?, description=?, start_date=?, end_date=?, tags=?, image=? WHERE id=?'
+  ).run(
+    title,
+    description || null,
+    start_date,
+    end_date || null,
+    tags?.length ? JSON.stringify(tags) : '[]',
+    image || null,
+    req.params.id
+  );
+  res.status(200).json({ id: parseInt(req.params.id) });
+});
+
+// DELETE timeline item
+app.delete('/api/timeline/items/:id', (req, res) => {
+  db.prepare('DELETE FROM timeline_items WHERE id = ?').run(req.params.id);
   res.status(204).end();
 });
 
