@@ -32,4 +32,24 @@ db.exec(`
   )
 `);
 
+db.exec(`
+  CREATE TABLE IF NOT EXISTS timeline_settings (
+    id INTEGER PRIMARY KEY,
+    birthdate TEXT
+  )
+`);
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS timeline_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title TEXT NOT NULL,
+    description TEXT,
+    start_date TEXT NOT NULL,
+    end_date TEXT,
+    tags TEXT DEFAULT '[]',
+    image TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )
+`);
+
 module.exports = db;
