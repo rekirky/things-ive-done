@@ -729,3 +729,104 @@ input[type='date'].tl-input {
   line-height: 1.65;
   margin: 0;
 }
+
+/* ── Horizontal mode ── */
+
+.tl-inner--h {
+  min-height: 100%;
+}
+
+/* Horizontal year marks */
+.tl-year--h {
+  top: 0;
+  left: 0; /* overridden inline */
+  transform: translateX(-50%);
+  flex-direction: column;
+  align-items: center;
+  height: 56px;
+  justify-content: flex-start;
+  padding-top: 4px;
+  gap: 1px;
+}
+
+.tl-year--h .tl-year-num {
+  width: auto;
+  text-align: center;
+}
+
+.tl-year--h .tl-year-age {
+  width: auto;
+  text-align: center;
+}
+
+.tl-year-tick-h {
+  position: absolute;
+  bottom: 0;
+  width: 1px;
+  height: 10px;
+  background: #2a2a48;
+}
+
+.tl-year--h.tl-year--major .tl-year-tick-h {
+  background: #505080;
+  height: 14px;
+}
+
+/* Horizontal birth marker */
+.tl-birth--h {
+  transform: translateY(-50%);
+}
+
+.tl-birth--h .tl-birth-dot {
+  transform: translateX(-50%);
+}
+
+.tl-birth-label--h {
+  position: absolute;
+  top: 14px;
+  left: -4px;
+  font-size: 11px;
+  color: #6080d0;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* Horizontal today marker (vertical line) */
+.tl-today--h {
+  top: 0;
+  transform: translateX(-50%);
+}
+
+.tl-today-line-v {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 2px;
+  background: #e94560;
+  box-shadow: 0 0 10px #e9456070;
+}
+
+/* Horizontal items */
+.tl-item--h {
+  border-left: none;
+  border-top: 4px solid var(--ic);
+}
+
+.tl-item--h:hover {
+  transform: translateY(-3px);
+}
+
+.tl-item--h .tl-item-inner {
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 2px;
+}
+
+.tl-item--h .tl-item-actions {
+  flex-direction: row;
+  position: absolute;
+  top: 4px;
+  right: 4px;
+}

@@ -8,6 +8,11 @@ const LANE_WIDTH = 215;
 const ITEM_WIDTH = 204;
 const MIN_ITEM_HEIGHT = 36;
 
+// Horizontal mode constants
+const AXIS_H = 56;
+const LANE_H = 96;
+const ITEM_H_H = 80;
+
 const TAG_PALETTE = [
   '#e94560', '#60a5fa', '#4ade80', '#f59e0b',
   '#a78bfa', '#fb923c', '#34d399', '#f472b6',
@@ -65,6 +70,7 @@ export default function MyTimeline() {
   const [showForm, setShowForm] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [selectedItem, setSelectedItem] = useState(null);
+  const [orient, setOrient] = useState('vertical');
   const scrollRef = useRef(null);
 
   const fetchAll = useCallback(() =>
@@ -133,9 +139,10 @@ export default function MyTimeline() {
 
   useEffect(() => {
     if (scrollRef.current && tl) {
-      scrollRef.current.scrollTop = Math.max(0, tl.todayTop - 300);
+      if (orient === 'horizontal') scrollRef.current.scrollLeft = Math.max(0, tl.todayTop - 500);
+      else scrollRef.current.scrollTop = Math.max(0, tl.todayTop - 300);
     }
-  }, [tl?.todayTop]);
+  }, [tl?.todayTop, orient]);
 
   function toggleTag(tag) {
     setActiveTags(p => p.includes(tag) ? p.filter(t => t !== tag) : [...p, tag]);
@@ -199,6 +206,13 @@ export default function MyTimeline() {
           <button className="tl-btn tl-btn--primary" onClick={() => { setEditingItem(null); setShowForm(true); }}>
             + Add Item
           </button>
+          <button
+            className="tl-btn"
+            onClick={() => setOrient(o => o === 'vertical' ? 'horizontal' : 'vertical')}
+            title="Toggle layout"
+          >
+            {orient === 'horizontal' ? '↕ Vertical' : '↔ Horizontal'}
+          </button>
           <button className="tl-btn" onClick={() => setShowSettings(true)}>⚙ Settings</button>
         </div>
       </div>
@@ -225,97 +239,132 @@ export default function MyTimeline() {
       )}
 
       <div className="tl-scroll" ref={scrollRef}>
-        {tl && (
-          <div
-            className="tl-inner"
-            style={{ height: tl.totalHeight, width: Math.max(tl.totalWidth, 600) }}
-          >
-            {/* Lifeline — birth to today */}
-            <div className="tl-line" style={{ left: AXIS_WIDTH, height: tl.todayTop }} />
-            {/* Lifeline continuation — faded below today */}
-            <div className="tl-line tl-line--future" style={{ left: AXIS_WIDTH, top: tl.todayTop, height: tl.totalHeight - tl.todayTop }} />
+        {tl && (() => {
+          const H = orient === 'horizontal';
+          const numLanes = tl.withLanes.length > 0 ? Math.max(...tl.withLanes.map(i => i.lane)) + 1 : 1;
+          const innerW = H ? tl.totalHeight + 60 : Math.max(tl.totalWidth, 600);
+          const innerH = H ? AXIS_H + numLanes * LANE_H + 40 : tl.totalHeight;
+          return (
+            <div className={`tl-inner${H ? ' tl-inner--h' : ''}`} style={{ width: innerW, height: innerH }}>
 
-            {/* Birth marker */}
-            <div className="tl-birth" style={{ left: AXIS_WIDTH }}>
-              <div className="tl-birth-dot" />
-              <span className="tl-birth-label">Born · {fmtDate(birthdate)}</span>
-            </div>
+              {/* Lifeline */}
+              <div className="tl-line" style={H
+                ? { top: AXIS_H, left: 0, width: tl.todayTop, height: 3, transform: 'none' }
+                : { left: AXIS_WIDTH, height: tl.todayTop }} />
+              <div className="tl-line tl-line--future" style={H
+                ? { top: AXIS_H, left: tl.todayTop, width: innerW - tl.todayTop, height: 2, transform: 'none' }
+                : { left: AXIS_WIDTH, top: tl.todayTop, height: tl.totalHeight - tl.todayTop }} />
 
-            {/* Year ticks */}
-            {tl.yearMarks.map(({ year, age, top, major }) => (
-              <div key={year} className={`tl-year${major ? ' tl-year--major' : ''}`} style={{ top }}>
-                <span className="tl-year-num">{year}</span>
-                <span className="tl-year-age">age {age}</span>
-                <div className="tl-year-tick" style={{ left: AXIS_WIDTH - 10 }} />
-              </div>
-            ))}
+              {/* Birth marker */}
+              {H ? (
+                <div className="tl-birth tl-birth--h" style={{ top: AXIS_H, left: 0 }}>
+                  <div className="tl-birth-dot" />
+                  <span className="tl-birth-label tl-birth-label--h">Born · {fmtDate(birthdate)}</span>
+                </div>
+              ) : (
+                <div className="tl-birth" style={{ left: AXIS_WIDTH }}>
+                  <div className="tl-birth-dot" />
+                  <span className="tl-birth-label">Born · {fmtDate(birthdate)}</span>
+                </div>
+              )}
 
-            {/* Birthday markers */}
-            {tl.birthdays.map(({ year, age, top, milestone }) => (
-              <div
-                key={`bd-${year}`}
-                className={`tl-birthday${milestone ? ' tl-birthday--big' : ''}`}
-                style={{ top, left: AXIS_WIDTH + 8 }}
-                title={`Birthday — Age ${age}`}
-              >
-                🎂{milestone && <span className="tl-bd-label">Age {age}</span>}
-              </div>
-            ))}
+              {/* Year ticks */}
+              {tl.yearMarks.map(({ year, age, top, major }) => H ? (
+                <div key={year} className={`tl-year tl-year--h${major ? ' tl-year--major' : ''}`} style={{ left: top }}>
+                  <span className="tl-year-num">{year}</span>
+                  <span className="tl-year-age">{age}</span>
+                  <div className="tl-year-tick-h" />
+                </div>
+              ) : (
+                <div key={year} className={`tl-year${major ? ' tl-year--major' : ''}`} style={{ top }}>
+                  <span className="tl-year-num">{year}</span>
+                  <span className="tl-year-age">age {age}</span>
+                  <div className="tl-year-tick" style={{ left: AXIS_WIDTH - 10 }} />
+                </div>
+              ))}
 
-            {/* Today line */}
-            <div className="tl-today" style={{ top: tl.todayTop }}>
-              <div className="tl-today-line" style={{ width: Math.max(tl.totalWidth, 600) }} />
-              <span className="tl-today-label" style={{ left: AXIS_WIDTH + 12 }}>
-                Today · Age {today.getFullYear() - birthDate.getFullYear()}
-              </span>
-            </div>
+              {/* Birthday markers */}
+              {tl.birthdays.map(({ year, age, top, milestone }) => (
+                <div
+                  key={`bd-${year}`}
+                  className={`tl-birthday${milestone ? ' tl-birthday--big' : ''}`}
+                  style={H ? { left: top, top: AXIS_H + 6, transform: 'translateX(-50%)' } : { top, left: AXIS_WIDTH + 8 }}
+                  title={`Birthday — Age ${age}`}
+                >
+                  🎂{milestone && <span className="tl-bd-label">Age {age}</span>}
+                </div>
+              ))}
 
-            {/* Items */}
-            {tl.withLanes.map(item => (
-              <div
-                key={item.id}
-                className={`tl-item${!item.end_date ? ' tl-item--ongoing' : ''}`}
-                style={{
-                  top: item.startTop,
-                  left: AXIS_WIDTH + 18 + item.lane * LANE_WIDTH,
-                  width: ITEM_WIDTH,
-                  height: item.height,
-                  '--ic': itemColor(item),
-                }}
-                onClick={() => setSelectedItem(item)}
-              >
-                <div className="tl-item-inner">
-                  <div className="tl-item-body">
-                    <div className="tl-item-title">{item.title}</div>
-                    {item.tags.length > 0 && (
-                      <div className="tl-item-tags">
-                        {item.tags.map(t => (
-                          <span key={t} className="tl-chip" style={{ '--tc': tagColor(t) }}>{t}</span>
-                        ))}
+              {/* Today marker */}
+              {H ? (
+                <div className="tl-today tl-today--h" style={{ left: tl.todayTop }}>
+                  <div className="tl-today-line-v" style={{ height: innerH }} />
+                  <span className="tl-today-label" style={{ top: AXIS_H + 6, left: 6 }}>
+                    Today · Age {today.getFullYear() - birthDate.getFullYear()}
+                  </span>
+                </div>
+              ) : (
+                <div className="tl-today" style={{ top: tl.todayTop }}>
+                  <div className="tl-today-line" style={{ width: innerW }} />
+                  <span className="tl-today-label" style={{ left: AXIS_WIDTH + 12 }}>
+                    Today · Age {today.getFullYear() - birthDate.getFullYear()}
+                  </span>
+                </div>
+              )}
+
+              {/* Items */}
+              {tl.withLanes.map(item => (
+                <div
+                  key={item.id}
+                  className={`tl-item${!item.end_date ? ' tl-item--ongoing' : ''}${H ? ' tl-item--h' : ''}`}
+                  style={H ? {
+                    left: item.startTop,
+                    top: AXIS_H + 18 + item.lane * LANE_H,
+                    width: Math.max(MIN_ITEM_HEIGHT, item.height),
+                    height: ITEM_H_H,
+                    '--ic': itemColor(item),
+                  } : {
+                    top: item.startTop,
+                    left: AXIS_WIDTH + 18 + item.lane * LANE_WIDTH,
+                    width: ITEM_WIDTH,
+                    height: item.height,
+                    '--ic': itemColor(item),
+                  }}
+                  onClick={() => setSelectedItem(item)}
+                >
+                  <div className="tl-item-inner">
+                    <div className="tl-item-body">
+                      <div className="tl-item-title">{item.title}</div>
+                      {item.tags.length > 0 && (
+                        <div className="tl-item-tags">
+                          {item.tags.map(t => (
+                            <span key={t} className="tl-chip" style={{ '--tc': tagColor(t) }}>{t}</span>
+                          ))}
+                        </div>
+                      )}
+                      <div className="tl-item-dates">
+                        {fmtDate(item.start_date)} → {item.end_date ? fmtDate(item.end_date) : 'Present'}
                       </div>
-                    )}
-                    <div className="tl-item-dates">
-                      {fmtDate(item.start_date)} → {item.end_date ? fmtDate(item.end_date) : 'Present'}
+                      {item.image && <span className="tl-item-cam">📷</span>}
                     </div>
-                    {item.image && <span className="tl-item-cam">📷</span>}
-                  </div>
-                  <div className="tl-item-actions">
-                    <button
-                      className="tl-action-btn"
-                      title="Edit"
-                      onClick={e => { e.stopPropagation(); setEditingItem(item); setShowForm(true); }}
-                    >✎</button>
-                    <button
-                      className="tl-action-btn tl-action-btn--del"
-                      title="Delete"
-                      onClick={e => { e.stopPropagation(); deleteItem(item.id); }}
-                    >×</button>
+                    <div className="tl-item-actions">
+                      <button
+                        className="tl-action-btn"
+                        title="Edit"
+                        onClick={e => { e.stopPropagation(); setEditingItem(item); setShowForm(true); }}
+                      >✎</button>
+                      <button
+                        className="tl-action-btn tl-action-btn--del"
+                        title="Delete"
+                        onClick={e => { e.stopPropagation(); deleteItem(item.id); }}
+                      >×</button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        )}
+              ))}
+            </div>
+          );
+        })()}
       </div>
 
       {showSettings && (
