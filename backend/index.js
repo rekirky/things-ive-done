@@ -154,17 +154,18 @@ app.delete('/api/concerts/:id', (req, res) => {
 // GET timeline settings
 app.get('/api/timeline/settings', (req, res) => {
   const row = db.prepare('SELECT * FROM timeline_settings WHERE id = 1').get();
-  res.json(row || { birthdate: null });
+  if (!row) return res.json({ birthdate: null, tag_colors: {} });
+  res.json({ ...row, tag_colors: row.tag_colors ? JSON.parse(row.tag_colors) : {} });
 });
 
 // POST timeline settings (upsert)
 app.post('/api/timeline/settings', (req, res) => {
-  const { birthdate } = req.body;
+  const { birthdate, tag_colors } = req.body;
   db.prepare(`
-    INSERT INTO timeline_settings (id, birthdate) VALUES (1, ?)
-    ON CONFLICT(id) DO UPDATE SET birthdate = excluded.birthdate
-  `).run(birthdate || null);
-  res.json({ birthdate });
+    INSERT INTO timeline_settings (id, birthdate, tag_colors) VALUES (1, ?, ?)
+    ON CONFLICT(id) DO UPDATE SET birthdate = excluded.birthdate, tag_colors = excluded.tag_colors
+  `).run(birthdate || null, tag_colors ? JSON.stringify(tag_colors) : null);
+  res.json({ birthdate, tag_colors: tag_colors || {} });
 });
 
 // GET all timeline items

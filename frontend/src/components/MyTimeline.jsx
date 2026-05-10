@@ -19,14 +19,11 @@ const TAG_PALETTE = [
   '#22d3ee', '#84cc16', '#c084fc', '#fbbf24',
 ];
 
-function tagColor(tag) {
+function tagColor(tag, overrides = {}) {
+  if (overrides[tag]) return overrides[tag];
   let h = 0;
   for (let i = 0; i < tag.length; i++) h = ((h << 5) - h + tag.charCodeAt(i)) | 0;
   return TAG_PALETTE[Math.abs(h) % TAG_PALETTE.length];
-}
-
-function itemColor(item) {
-  return item.tags?.length ? tagColor(item.tags[0]) : '#6060a0';
 }
 
 function dateToTop(date, birthDate) {
@@ -65,6 +62,7 @@ function assignLanes(items, birthDate, today) {
 export default function MyTimeline() {
   const [items, setItems] = useState([]);
   const [birthdate, setBirthdate] = useState(null);
+  const [tagColors, setTagColors] = useState({});
   const [activeTags, setActiveTags] = useState([]);
   const [showSettings, setShowSettings] = useState(false);
   const [showForm, setShowForm] = useState(false);
@@ -79,6 +77,7 @@ export default function MyTimeline() {
       fetch('/api/timeline/items').then(r => r.json()),
     ]).then(([settings, list]) => {
       setBirthdate(settings.birthdate || null);
+      setTagColors(settings.tag_colors || {});
       setItems(list);
     }), []);
 
@@ -89,6 +88,8 @@ export default function MyTimeline() {
 
   const allTags = useMemo(() =>
     [...new Set(items.flatMap(i => i.tags))].sort(), [items]);
+
+  const tc = (tag) => tagColor(tag, tagColors);
 
   const filteredItems = useMemo(() =>
     activeTags.length === 0
@@ -148,12 +149,13 @@ export default function MyTimeline() {
     setActiveTags(p => p.includes(tag) ? p.filter(t => t !== tag) : [...p, tag]);
   }
 
-  async function saveSettings(bd) {
+  async function saveSettings(bd, colors) {
     await fetch('/api/timeline/settings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ birthdate: bd }),
+      body: JSON.stringify({ birthdate: bd, tag_colors: colors }),
     });
+    setTagColors(colors || {});
     await fetchAll();
     setShowSettings(false);
   }
@@ -192,7 +194,7 @@ export default function MyTimeline() {
           </button>
         </div>
         {showSettings && (
-          <SettingsModal birthdate={birthdate} onSave={saveSettings} onClose={() => setShowSettings(false)} />
+          <SettingsModal birthdate={birthdate} tagColors={tagColors} allTags={allTags} onSave={saveSettings} onClose={() => setShowSettings(false)} />
         )}
       </div>
     );
@@ -229,7 +231,7 @@ export default function MyTimeline() {
             <button
               key={tag}
               className={`tl-filter-btn${activeTags.includes(tag) ? ' active' : ''}`}
-              style={{ '--tc': tagColor(tag) }}
+              style={{ '--tc': tc(tag) }}
               onClick={() => toggleTag(tag)}
             >
               {tag}
@@ -322,13 +324,13 @@ export default function MyTimeline() {
                     top: AXIS_H + 18 + item.lane * LANE_H,
                     width: Math.max(MIN_ITEM_HEIGHT, item.height),
                     height: ITEM_H_H,
-                    '--ic': itemColor(item),
+                    '--ic': item.tags?.length ? tc(item.tags[0]) : '#6060a0',
                   } : {
                     top: item.startTop,
                     left: AXIS_WIDTH + 18 + item.lane * LANE_WIDTH,
                     width: ITEM_WIDTH,
                     height: item.height,
-                    '--ic': itemColor(item),
+                    '--ic': item.tags?.length ? tc(item.tags[0]) : '#6060a0',
                   }}
                   onClick={() => setSelectedItem(item)}
                 >
@@ -338,7 +340,7 @@ export default function MyTimeline() {
                       {item.tags.length > 0 && (
                         <div className="tl-item-tags">
                           {item.tags.map(t => (
-                            <span key={t} className="tl-chip" style={{ '--tc': tagColor(t) }}>{t}</span>
+                            <span key={t} className="tl-chip" style={{ '--tc': tc(t) }}>{t}</span>
                           ))}
                         </div>
                       )}
@@ -374,6 +376,7 @@ export default function MyTimeline() {
         <ItemFormModal
           item={editingItem}
           allTags={allTags}
+          tagColors={tagColors}
           onSave={saveItem}
           onClose={() => { setShowForm(false); setEditingItem(null); }}
         />
@@ -381,6 +384,7 @@ export default function MyTimeline() {
       {selectedItem && (
         <ItemDetailModal
           item={selectedItem}
+          tagColors={tagColors}
           onEdit={() => { setEditingItem(selectedItem); setSelectedItem(null); setShowForm(true); }}
           onDelete={() => deleteItem(selectedItem.id)}
           onClose={() => setSelectedItem(null)}
@@ -392,8 +396,18 @@ export default function MyTimeline() {
 
 // ── Settings modal ────────────────────────────────────────────────────────────
 
-function SettingsModal({ birthdate, onSave, onClose }) {
+function SettingsModal({ birthdate, tagColors, allTags, onSave, onClose }) {
   const [value, setValue] = useState(birthdate || '');
+  const [localColors, setLocalColors] = useState({ ...tagColors });
+
+  function setColor(tag, color) {
+    setLocalColors(p => ({ ...p, [tag]: color }));
+  }
+
+  function resetColor(tag) {
+    setLocalColors(p => { const n = { ...p }; delete n[tag]; return n; });
+  }
+
   return (
     <div className="tl-overlay" onClick={onClose}>
       <div className="tl-modal" onClick={e => e.stopPropagation()}>
@@ -409,13 +423,39 @@ function SettingsModal({ birthdate, onSave, onClose }) {
             value={value}
             onChange={e => setValue(e.target.value)}
           />
+
+          {allTags.length > 0 && (
+            <>
+              <label className="tl-label tl-label--mt">Tag Colors</label>
+              <div className="tl-tag-colors">
+                {allTags.map(tag => {
+                  const color = localColors[tag] || tagColor(tag);
+                  const overridden = !!localColors[tag];
+                  return (
+                    <div key={tag} className="tl-tag-color-row">
+                      <span className="tl-chip" style={{ '--tc': color }}>{tag}</span>
+                      <input
+                        type="color"
+                        className="tl-color-input"
+                        value={color}
+                        onChange={e => setColor(tag, e.target.value)}
+                      />
+                      {overridden && (
+                        <button className="tl-color-reset" title="Reset to default" onClick={() => resetColor(tag)}>↺</button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
         </div>
         <div className="tl-modal-foot">
           <button className="tl-btn" onClick={onClose}>Cancel</button>
           <button
             className="tl-btn tl-btn--primary"
             disabled={!value}
-            onClick={() => value && onSave(value)}
+            onClick={() => value && onSave(value, localColors)}
           >Save</button>
         </div>
       </div>
@@ -425,7 +465,7 @@ function SettingsModal({ birthdate, onSave, onClose }) {
 
 // ── Add / edit item modal ─────────────────────────────────────────────────────
 
-function ItemFormModal({ item, allTags, onSave, onClose }) {
+function ItemFormModal({ item, allTags, tagColors = {}, onSave, onClose }) {
   const [title, setTitle] = useState(item?.title || '');
   const [desc, setDesc] = useState(item?.description || '');
   const [startDate, setStartDate] = useState(item?.start_date || '');
@@ -503,7 +543,7 @@ function ItemFormModal({ item, allTags, onSave, onClose }) {
           <label className="tl-label">Tags</label>
           <div className="tl-tag-wrap">
             {tags.map(t => (
-              <span key={t} className="tl-chip tl-chip--rm" style={{ '--tc': tagColor(t) }}>
+              <span key={t} className="tl-chip tl-chip--rm" style={{ '--tc': tagColor(t, tagColors) }}>
                 {t}<button onClick={() => setTags(p => p.filter(x => x !== t))}>×</button>
               </span>
             ))}
@@ -550,7 +590,7 @@ function ItemFormModal({ item, allTags, onSave, onClose }) {
 
 // ── Item detail modal ─────────────────────────────────────────────────────────
 
-function ItemDetailModal({ item, onEdit, onDelete, onClose }) {
+function ItemDetailModal({ item, tagColors = {}, onEdit, onDelete, onClose }) {
   return (
     <div className="tl-overlay" onClick={onClose}>
       <div className="tl-modal tl-modal--detail" onClick={e => e.stopPropagation()}>
@@ -571,7 +611,7 @@ function ItemDetailModal({ item, onEdit, onDelete, onClose }) {
           {item.tags.length > 0 && (
             <div className="tl-detail-tags">
               {item.tags.map(t => (
-                <span key={t} className="tl-chip" style={{ '--tc': tagColor(t) }}>{t}</span>
+                <span key={t} className="tl-chip" style={{ '--tc': tagColor(t, tagColors) }}>{t}</span>
               ))}
             </div>
           )}

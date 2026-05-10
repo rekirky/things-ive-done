@@ -35,7 +35,8 @@ db.exec(`
 db.exec(`
   CREATE TABLE IF NOT EXISTS timeline_settings (
     id INTEGER PRIMARY KEY,
-    birthdate TEXT
+    birthdate TEXT,
+    tag_colors TEXT
   )
 `);
 
