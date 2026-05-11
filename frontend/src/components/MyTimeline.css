@@ -743,15 +743,15 @@ input[type='date'].tl-input {
 
 /* Horizontal year marks */
 .tl-year--h {
-  top: 0;
-  left: 0; /* overridden inline */
+  /* top set inline to H_AXIS_Y */
+  left: 0;
   transform: translateX(-50%);
   flex-direction: column;
   align-items: center;
-  height: 56px;
   justify-content: flex-start;
-  padding-top: 4px;
+  padding-top: 6px;
   gap: 1px;
+  height: 44px;
 }
 
 .tl-year--h .tl-year-num {
@@ -766,7 +766,7 @@ input[type='date'].tl-input {
 
 .tl-year-tick-h {
   position: absolute;
-  bottom: 0;
+  top: -6px;
   width: 1px;
   height: 10px;
   background: #2a2a48;
@@ -874,3 +874,136 @@ input[type='date'].tl-input {
   transition: color 0.15s;
 }
 .tl-color-reset:hover { color: #ccc; }
+
+/* ── New axis styles ── */
+.tl-axis-past {
+  position: absolute;
+  background: #5050a0;
+  border-radius: 2px;
+  pointer-events: none;
+}
+.tl-axis-future {
+  position: absolute;
+  background: #2a2a48;
+  pointer-events: none;
+}
+
+/* ── Pins ── */
+.tl-pin-dot {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid #0d0d1e;
+  z-index: 3;
+  pointer-events: none;
+}
+
+.tl-pin-stalk {
+  position: absolute;
+  z-index: 2;
+  opacity: 0.75;
+  pointer-events: none;
+}
+
+.tl-pin-box {
+  position: absolute;
+  z-index: 4;
+  background: #12152a;
+  border: 1.5px solid var(--ic, #5050a0);
+  border-radius: 7px;
+  padding: 6px 10px;
+  cursor: pointer;
+  min-height: 34px;
+  box-sizing: border-box;
+  transition: box-shadow 0.15s, background 0.15s;
+}
+.tl-pin-box:hover {
+  background: #16213e;
+  box-shadow: 0 0 0 2px var(--ic, #5050a0)40;
+}
+.tl-pin-box--open {
+  background: #16213e;
+  box-shadow: 0 2px 16px rgba(0,0,0,0.5), 0 0 0 2px var(--ic, #5050a0);
+  z-index: 5;
+}
+
+.tl-pin-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #d8d8ee;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.3;
+}
+
+.tl-pin-detail {
+  margin-top: 7px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.tl-pin-dates {
+  font-size: 11px;
+  color: #7070a0;
+  white-space: nowrap;
+}
+
+.tl-pin-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+
+.tl-pin-desc {
+  font-size: 11px;
+  color: #a0a0c0;
+  line-height: 1.45;
+  max-height: 72px;
+  overflow: hidden;
+}
+
+.tl-pin-img {
+  max-height: 100px;
+  overflow: hidden;
+  border-radius: 4px;
+}
+.tl-pin-img img { width: 100%; height: 100%; object-fit: cover; border-radius: 4px; }
+
+.tl-pin-btns {
+  display: flex;
+  gap: 6px;
+  padding-top: 2px;
+}
+.tl-pin-btns button {
+  background: #1e213a;
+  border: 1px solid #3a3a5c;
+  color: #9090b8;
+  border-radius: 4px;
+  padding: 3px 10px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+.tl-pin-btns button:hover { background: #3a3a5c; color: #e0e0f0; }
+.tl-pin-del { color: #e94560 !important; }
+.tl-pin-del:hover { background: #e94560 !important; color: #fff !important; border-color: #e94560 !important; }
+
+/* ── Span bar on axis ── */
+.tl-span {
+  position: absolute;
+  z-index: 1;
+  border-radius: 3px;
+  pointer-events: none;
+  opacity: 0.65;
+}
+
+/* ── Horizontal birth label ── */
+.tl-birth-label--h {
+  position: absolute;
+  top: 12px;
+  left: 2px;
+  white-space: nowrap;
+}

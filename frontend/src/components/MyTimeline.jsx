@@ -1,17 +1,25 @@
-import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback, Fragment } from 'react';
 import './MyTimeline.css';
 
-const YEAR_HEIGHT = 110;
+const YEAR_PX = 110;
 const MS_PER_YEAR = 365.25 * 24 * 60 * 60 * 1000;
-const AXIS_WIDTH = 130;
-const LANE_WIDTH = 215;
-const ITEM_WIDTH = 204;
-const MIN_ITEM_HEIGHT = 36;
 
-// Horizontal mode constants
-const AXIS_H = 56;
-const LANE_H = 96;
-const ITEM_H_H = 80;
+// Pin layout — horizontal (time → x)
+const H_AXIS_Y    = 164;
+const H_STALK_BASE = 72;
+const H_STALK_STEP = 58;
+const H_BOX_W     = 168;
+const H_BOX_H     = 34;
+
+// Pin layout — vertical (time → y)
+const V_AXIS_X    = 130;
+const V_STALK_BASE = 72;
+const V_STALK_STEP = 58;
+const V_BOX_W     = 156;
+const V_BOX_H     = 34;
+
+const DOT_R    = 5;
+const MIN_GAP  = 182;   // min px between box centres on the same side/lane
 
 const TAG_PALETTE = [
   '#e94560', '#60a5fa', '#4ade80', '#f59e0b',
@@ -26,9 +34,11 @@ function tagColor(tag, overrides = {}) {
   return TAG_PALETTE[Math.abs(h) % TAG_PALETTE.length];
 }
 
-function dateToTop(date, birthDate) {
-  return Math.max(0, (date.getTime() - birthDate.getTime()) / MS_PER_YEAR * YEAR_HEIGHT);
+function dateToPx(date, birthDate) {
+  return Math.max(0, (date.getTime() - birthDate.getTime()) / MS_PER_YEAR * YEAR_PX);
 }
+// keep legacy alias used in some places
+const dateToTop = dateToPx;
 
 function parseDate(str) {
   return new Date(str + 'T00:00:00');
@@ -40,22 +50,24 @@ function fmtDate(str) {
   return d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
 }
 
-function assignLanes(items, birthDate, today) {
+function assignStalks(items, birthDate, today) {
   const sorted = [...items].sort((a, b) => parseDate(a.start_date) - parseDate(b.start_date));
-  const laneEnds = [];
-  return sorted.map(item => {
-    const start = parseDate(item.start_date);
-    const end = item.end_date ? parseDate(item.end_date) : today;
-    const startTop = dateToTop(start, birthDate);
-    const rawH = dateToTop(end, birthDate) - startTop;
-    const height = Math.max(MIN_ITEM_HEIGHT, rawH);
-    const bottomTop = startTop + height;
-
-    let lane = laneEnds.findIndex(e => e <= startTop - 2);
-    if (lane === -1) lane = laneEnds.length;
-    laneEnds[lane] = bottomTop + 4;
-
-    return { ...item, lane, startTop, height, start, end };
+  const todayAbs = dateToPx(today, birthDate);
+  const used = { a: [], b: [] };
+  return sorted.map((item, idx) => {
+    const px    = dateToPx(parseDate(item.start_date), birthDate);
+    const endPx = item.end_date ? dateToPx(parseDate(item.end_date), birthDate) : todayAbs;
+    const findLane = s => {
+      let l = 0;
+      while (used[s].some(u => u.lane === l && Math.abs(u.px - px) < MIN_GAP)) l++;
+      return l;
+    };
+    const la = findLane('a'), lb = findLane('b');
+    // prefer alternating; tie-break to side with lower lane needed
+    const side = (idx % 2 === 0 ? la <= lb : lb <= la) ? 'a' : 'b';
+    const lane = side === 'a' ? la : lb;
+    used[side].push({ px, lane });
+    return { ...item, px, endPx, side, lane };
   });
 }
 
@@ -68,7 +80,7 @@ export default function MyTimeline() {
   const [showForm, setShowForm] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [selectedItem, setSelectedItem] = useState(null);
-  const [orient, setOrient] = useState('vertical');
+  const [orient, setOrient] = useState('horizontal');
   const scrollRef = useRef(null);
   const dragState = useRef(null);
 
@@ -103,64 +115,52 @@ export default function MyTimeline() {
 
     const birthYear = birthDate.getFullYear();
     const todayYear = today.getFullYear();
-    const todayTopAbsolute = dateToTop(today, birthDate);
+    const todayAbs  = dateToPx(today, birthDate);
 
     // Trim dead space when a tag filter is active
     let viewStart = 0;
-    let viewEndAbs = todayTopAbsolute;
+    let viewEndAbs = todayAbs;
     if (activeTags.length > 0 && filteredItems.length > 0) {
-      const pad = YEAR_HEIGHT * 0.75;
-      const starts = filteredItems.map(i => dateToTop(parseDate(i.start_date), birthDate));
-      const ends = filteredItems.map(i =>
-        i.end_date ? dateToTop(parseDate(i.end_date), birthDate) : todayTopAbsolute
+      const pad = YEAR_PX * 0.75;
+      const starts = filteredItems.map(i => dateToPx(parseDate(i.start_date), birthDate));
+      const ends   = filteredItems.map(i =>
+        i.end_date ? dateToPx(parseDate(i.end_date), birthDate) : todayAbs
       );
-      viewStart = Math.max(0, Math.min(...starts) - pad);
-      viewEndAbs = Math.min(todayTopAbsolute, Math.max(...ends) + pad);
+      viewStart  = Math.max(0, Math.min(...starts) - pad);
+      viewEndAbs = Math.min(todayAbs, Math.max(...ends) + pad);
     }
 
-    const todayTop = todayTopAbsolute - viewStart;
-    const totalHeight = viewEndAbs - viewStart + YEAR_HEIGHT;
+    const todayTop = todayAbs - viewStart;
+    const timePx   = viewEndAbs - viewStart + YEAR_PX * 0.5;
 
     const yearMarks = [];
     for (let y = birthYear; y <= todayYear + 1; y++) {
       const date = y === birthYear ? birthDate : new Date(y, 0, 1);
       if (date > today && y > todayYear) break;
-      const top = dateToTop(date, birthDate) - viewStart;
-      if (top < -YEAR_HEIGHT || top > totalHeight + YEAR_HEIGHT) continue;
-      yearMarks.push({
-        year: y,
-        age: y - birthYear,
-        top,
-        major: (y - birthYear) % 5 === 0,
-      });
+      const top = dateToPx(date, birthDate) - viewStart;
+      if (top < -YEAR_PX || top > timePx + YEAR_PX) continue;
+      yearMarks.push({ year: y, age: y - birthYear, top, major: (y - birthYear) % 5 === 0 });
     }
 
     const birthdays = [];
     for (let y = birthYear + 1; y <= todayYear; y++) {
       const date = new Date(y, birthDate.getMonth(), birthDate.getDate());
       if (date > today) break;
-      const top = dateToTop(date, birthDate) - viewStart;
-      if (top < 0 || top > totalHeight) continue;
-      birthdays.push({
-        year: y,
-        age: y - birthYear,
-        top,
-        milestone: (y - birthYear) % 5 === 0,
-      });
+      const top = dateToPx(date, birthDate) - viewStart;
+      if (top < 0 || top > timePx) continue;
+      birthdays.push({ year: y, age: y - birthYear, top, milestone: (y - birthYear) % 5 === 0 });
     }
 
-    const withLanes = assignLanes(filteredItems, birthDate, today).map(i => ({
-      ...i,
-      startTop: i.startTop - viewStart,
+    const pins = assignStalks(filteredItems, birthDate, today).map(p => ({
+      ...p,
+      px:    p.px    - viewStart,
+      endPx: p.endPx - viewStart,
     }));
-    const numLanes = withLanes.length > 0
-      ? Math.max(...withLanes.map(i => i.lane)) + 1
-      : 1;
-    const totalWidth = AXIS_WIDTH + numLanes * LANE_WIDTH + 40;
-    const showBirth = viewStart < YEAR_HEIGHT * 0.25;
-    const showToday = todayTop <= totalHeight;
 
-    return { yearMarks, birthdays, todayTop, totalHeight, totalWidth, withLanes, showBirth, showToday };
+    const showBirth = viewStart < YEAR_PX * 0.25;
+    const showToday = todayTop <= timePx;
+
+    return { yearMarks, birthdays, todayTop, timePx, pins, showBirth, showToday };
   }, [birthDate, today, filteredItems, activeTags]);
 
   useEffect(() => {
@@ -321,127 +321,135 @@ export default function MyTimeline() {
       <div className="tl-scroll" ref={scrollRef} onMouseDown={onScrollMouseDown}>
         {tl && (() => {
           const H = orient === 'horizontal';
-          const numLanes = tl.withLanes.length > 0 ? Math.max(...tl.withLanes.map(i => i.lane)) + 1 : 1;
-          const innerW = H ? tl.totalHeight + 60 : Math.max(tl.totalWidth, 600);
-          const innerH = H ? AXIS_H + numLanes * LANE_H + 40 : tl.totalHeight;
-          return (
-            <div className={`tl-inner${H ? ' tl-inner--h' : ''}`} style={{ width: innerW, height: innerH }}>
+          const axisY = H ? H_AXIS_Y : 0;
+          const axisX = H ? 0 : V_AXIS_X;
 
-              {/* Lifeline */}
-              <div className="tl-line" style={H
-                ? { top: AXIS_H, left: 0, width: Math.min(tl.todayTop, innerW), height: 3, transform: 'none' }
-                : { left: AXIS_WIDTH, height: Math.min(tl.todayTop, tl.totalHeight) }} />
-              {tl.showToday && <div className="tl-line tl-line--future" style={H
-                ? { top: AXIS_H, left: tl.todayTop, width: innerW - tl.todayTop, height: 2, transform: 'none' }
-                : { left: AXIS_WIDTH, top: tl.todayTop, height: tl.totalHeight - tl.todayTop }} />}
+          const maxBLane = tl.pins.reduce((m, p) => p.side === 'b' ? Math.max(m, p.lane) : m, 0);
+          const bExtent = (H ? H_STALK_BASE : V_STALK_BASE) + maxBLane * (H ? H_STALK_STEP : V_STALK_STEP) + (H ? H_BOX_H : V_BOX_W) + 56;
+
+          const innerW = H ? tl.timePx + 80 : V_AXIS_X + bExtent;
+          const innerH = H ? H_AXIS_Y + bExtent : tl.timePx;
+
+          return (
+            <div className="tl-inner" style={{ width: innerW, height: innerH }}>
+
+              {/* Axis — past segment */}
+              <div className="tl-axis-past" style={H
+                ? { top: H_AXIS_Y - 2, left: 0, width: Math.min(tl.todayTop, innerW), height: 4 }
+                : { left: V_AXIS_X - 2, top: 0, height: Math.min(tl.todayTop, innerH), width: 4 }} />
+              {/* Axis — future segment */}
+              {tl.showToday && (
+                <div className="tl-axis-future" style={H
+                  ? { top: H_AXIS_Y - 1, left: tl.todayTop, width: innerW - tl.todayTop, height: 2 }
+                  : { left: V_AXIS_X - 1, top: tl.todayTop, height: innerH - tl.todayTop, width: 2 }} />
+              )}
 
               {/* Birth marker */}
-              {tl.showBirth && (H ? (
-                <div className="tl-birth tl-birth--h" style={{ top: AXIS_H, left: 0 }}>
+              {tl.showBirth && (
+                <div className={`tl-birth${H ? ' tl-birth--h' : ''}`}
+                     style={H ? { left: 4, top: H_AXIS_Y } : { top: 0, left: V_AXIS_X }}>
                   <div className="tl-birth-dot" />
-                  <span className="tl-birth-label tl-birth-label--h">Born · {fmtDate(birthdate)}</span>
+                  <span className={`tl-birth-label${H ? ' tl-birth-label--h' : ''}`}>Born · {fmtDate(birthdate)}</span>
                 </div>
-              ) : (
-                <div className="tl-birth" style={{ left: AXIS_WIDTH }}>
-                  <div className="tl-birth-dot" />
-                  <span className="tl-birth-label">Born · {fmtDate(birthdate)}</span>
-                </div>
-              ))}
+              )}
 
               {/* Year ticks */}
               {tl.yearMarks.map(({ year, age, top, major }) => H ? (
-                <div key={year} className={`tl-year tl-year--h${major ? ' tl-year--major' : ''}`} style={{ left: top }}>
+                <div key={year} className={`tl-year tl-year--h${major ? ' tl-year--major' : ''}`}
+                     style={{ left: top, top: H_AXIS_Y }}>
+                  <div className="tl-year-tick-h" />
                   <span className="tl-year-num">{year}</span>
                   <span className="tl-year-age">{age}</span>
-                  <div className="tl-year-tick-h" />
                 </div>
               ) : (
                 <div key={year} className={`tl-year${major ? ' tl-year--major' : ''}`} style={{ top }}>
                   <span className="tl-year-num">{year}</span>
                   <span className="tl-year-age">age {age}</span>
-                  <div className="tl-year-tick" style={{ left: AXIS_WIDTH - 10 }} />
+                  <div className="tl-year-tick" style={{ left: V_AXIS_X - 10 }} />
                 </div>
               ))}
 
-              {/* Birthday markers */}
+              {/* Birthdays */}
               {tl.birthdays.map(({ year, age, top, milestone }) => (
-                <div
-                  key={`bd-${year}`}
-                  className={`tl-birthday${milestone ? ' tl-birthday--big' : ''}`}
-                  style={H ? { left: top, top: AXIS_H + 6, transform: 'translateX(-50%)' } : { top, left: AXIS_WIDTH + 8 }}
-                  title={`Birthday — Age ${age}`}
-                >
+                <div key={`bd-${year}`}
+                     className={`tl-birthday${milestone ? ' tl-birthday--big' : ''}`}
+                     style={H ? { left: top, top: H_AXIS_Y + 14, transform: 'translateX(-50%)' } : { top, left: V_AXIS_X + 10 }}
+                     title={`Birthday — Age ${age}`}>
                   🎂{milestone && <span className="tl-bd-label">Age {age}</span>}
                 </div>
               ))}
 
-              {/* Today marker */}
+              {/* Today */}
               {tl.showToday && (H ? (
                 <div className="tl-today tl-today--h" style={{ left: tl.todayTop }}>
                   <div className="tl-today-line-v" style={{ height: innerH }} />
-                  <span className="tl-today-label" style={{ top: AXIS_H + 6, left: 6 }}>
+                  <span className="tl-today-label" style={{ top: H_AXIS_Y + 14, left: 6 }}>
                     Today · Age {today.getFullYear() - birthDate.getFullYear()}
                   </span>
                 </div>
               ) : (
                 <div className="tl-today" style={{ top: tl.todayTop }}>
                   <div className="tl-today-line" style={{ width: innerW }} />
-                  <span className="tl-today-label" style={{ left: AXIS_WIDTH + 12 }}>
+                  <span className="tl-today-label" style={{ left: V_AXIS_X + 14 }}>
                     Today · Age {today.getFullYear() - birthDate.getFullYear()}
                   </span>
                 </div>
               ))}
 
-              {/* Items */}
-              {tl.withLanes.map(item => (
-                <div
-                  key={item.id}
-                  className={`tl-item${!item.end_date ? ' tl-item--ongoing' : ''}${H ? ' tl-item--h' : ''}`}
-                  style={H ? {
-                    left: item.startTop,
-                    top: AXIS_H + 18 + item.lane * LANE_H,
-                    width: Math.max(MIN_ITEM_HEIGHT, item.height),
-                    height: ITEM_H_H,
-                    '--ic': item.tags?.length ? tc(item.tags[0]) : '#6060a0',
-                  } : {
-                    top: item.startTop,
-                    left: AXIS_WIDTH + 18 + item.lane * LANE_WIDTH,
-                    width: ITEM_WIDTH,
-                    height: item.height,
-                    '--ic': item.tags?.length ? tc(item.tags[0]) : '#6060a0',
-                  }}
-                  onClick={() => setSelectedItem(item)}
-                >
-                  <div className="tl-item-inner">
-                    <div className="tl-item-body">
-                      <div className="tl-item-title">{item.title}</div>
-                      {item.tags.length > 0 && (
-                        <div className="tl-item-tags">
-                          {item.tags.map(t => (
-                            <span key={t} className="tl-chip" style={{ '--tc': tc(t) }}>{t}</span>
-                          ))}
+              {/* Pins */}
+              {tl.pins.map(item => {
+                const isA    = item.side === 'a';
+                const sLen   = (H ? H_STALK_BASE : V_STALK_BASE) + item.lane * (H ? H_STALK_STEP : V_STALK_STEP);
+                const color  = item.tags?.length ? tc(item.tags[0]) : '#6060a0';
+                const isSel  = selectedItem?.id === item.id;
+                const spanLen = Math.max(0, item.endPx - item.px);
+                const BW = H ? H_BOX_W : V_BOX_W;
+
+                const dotStyle   = H ? { left: item.px - DOT_R, top: H_AXIS_Y - DOT_R }
+                                     : { top: item.px - DOT_R,  left: V_AXIS_X - DOT_R };
+                const stalkStyle = H ? { left: item.px - 1, top: isA ? H_AXIS_Y - sLen : H_AXIS_Y, width: 2, height: sLen }
+                                     : { top: item.px - 1,  left: isA ? V_AXIS_X - sLen : V_AXIS_X, height: 2, width: sLen };
+                const boxStyle   = H
+                  ? { left: item.px - BW / 2, top: isA ? H_AXIS_Y - sLen - H_BOX_H : H_AXIS_Y + sLen, width: BW }
+                  : { top: item.px - V_BOX_H / 2, left: isA ? V_AXIS_X - sLen - BW : V_AXIS_X + sLen, width: BW };
+                const spanStyle  = H ? { left: item.px, top: H_AXIS_Y - 3, width: spanLen, height: 6 }
+                                     : { top: item.px,  left: V_AXIS_X - 3, height: spanLen, width: 6 };
+
+                return (
+                  <Fragment key={item.id}>
+                    {isSel && spanLen > 0 && (
+                      <div className="tl-span" style={{ ...spanStyle, background: color }} />
+                    )}
+                    <div className="tl-pin-dot"   style={{ ...dotStyle,   background: color }} />
+                    <div className="tl-pin-stalk" style={{ ...stalkStyle, background: color }} />
+                    <div
+                      className={`tl-pin-box${isSel ? ' tl-pin-box--open' : ''}`}
+                      style={{ ...boxStyle, '--ic': color }}
+                      onClick={e => { e.stopPropagation(); setSelectedItem(isSel ? null : item); }}
+                    >
+                      <div className="tl-pin-title">{item.title}</div>
+                      {isSel && (
+                        <div className="tl-pin-detail">
+                          {item.tags.length > 0 && (
+                            <div className="tl-pin-tags">
+                              {item.tags.map(t => <span key={t} className="tl-chip tl-chip--sm" style={{ '--tc': tc(t) }}>{t}</span>)}
+                            </div>
+                          )}
+                          <div className="tl-pin-dates">
+                            {fmtDate(item.start_date)}{item.end_date ? ` → ${fmtDate(item.end_date)}` : ' → Present'}
+                          </div>
+                          {item.description && <div className="tl-pin-desc">{item.description}</div>}
+                          {item.image && <div className="tl-pin-img"><img src={item.image} alt={item.title} /></div>}
+                          <div className="tl-pin-btns">
+                            <button onClick={e => { e.stopPropagation(); setEditingItem(item); setSelectedItem(null); setShowForm(true); }}>✎ Edit</button>
+                            <button className="tl-pin-del" onClick={e => { e.stopPropagation(); deleteItem(item.id); }}>× Delete</button>
+                          </div>
                         </div>
                       )}
-                      <div className="tl-item-dates">
-                        {fmtDate(item.start_date)} → {item.end_date ? fmtDate(item.end_date) : 'Present'}
-                      </div>
-                      {item.image && <span className="tl-item-cam">📷</span>}
                     </div>
-                    <div className="tl-item-actions">
-                      <button
-                        className="tl-action-btn"
-                        title="Edit"
-                        onClick={e => { e.stopPropagation(); setEditingItem(item); setShowForm(true); }}
-                      >✎</button>
-                      <button
-                        className="tl-action-btn tl-action-btn--del"
-                        title="Delete"
-                        onClick={e => { e.stopPropagation(); deleteItem(item.id); }}
-                      >×</button>
-                    </div>
-                  </div>
-                </div>
-              ))}
+                  </Fragment>
+                );
+              })}
             </div>
           );
         })()}
@@ -457,15 +465,6 @@ export default function MyTimeline() {
           tagColors={tagColors}
           onSave={saveItem}
           onClose={() => { setShowForm(false); setEditingItem(null); }}
-        />
-      )}
-      {selectedItem && (
-        <ItemDetailModal
-          item={selectedItem}
-          tagColors={tagColors}
-          onEdit={() => { setEditingItem(selectedItem); setSelectedItem(null); setShowForm(true); }}
-          onDelete={() => deleteItem(selectedItem.id)}
-          onClose={() => setSelectedItem(null)}
         />
       )}
     </div>
@@ -666,41 +665,3 @@ function ItemFormModal({ item, allTags, tagColors = {}, onSave, onClose }) {
   );
 }
 
-// ── Item detail modal ─────────────────────────────────────────────────────────
-
-function ItemDetailModal({ item, tagColors = {}, onEdit, onDelete, onClose }) {
-  return (
-    <div className="tl-overlay" onClick={onClose}>
-      <div className="tl-modal tl-modal--detail" onClick={e => e.stopPropagation()}>
-        <div className="tl-modal-head">
-          <h3>{item.title}</h3>
-          <button className="tl-modal-x" onClick={onClose}>×</button>
-        </div>
-        <div className="tl-modal-body">
-          {item.image && (
-            <div className="tl-detail-img">
-              <img src={item.image} alt={item.title} />
-            </div>
-          )}
-          <div className="tl-detail-dates">
-            📅 {fmtDate(item.start_date)} → {item.end_date ? fmtDate(item.end_date) : 'Present'}
-            {!item.end_date && <span className="tl-ongoing-badge">Ongoing</span>}
-          </div>
-          {item.tags.length > 0 && (
-            <div className="tl-detail-tags">
-              {item.tags.map(t => (
-                <span key={t} className="tl-chip" style={{ '--tc': tagColor(t, tagColors) }}>{t}</span>
-              ))}
-            </div>
-          )}
-          {item.description && <p className="tl-detail-desc">{item.description}</p>}
-        </div>
-        <div className="tl-modal-foot">
-          <button className="tl-btn tl-btn--danger" onClick={onDelete}>Delete</button>
-          <button className="tl-btn" onClick={onClose}>Close</button>
-          <button className="tl-btn tl-btn--primary" onClick={onEdit}>Edit</button>
-        </div>
-      </div>
-    </div>
-  );
-}
