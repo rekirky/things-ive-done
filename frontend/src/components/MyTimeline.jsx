@@ -102,17 +102,34 @@ export default function MyTimeline() {
 
     const birthYear = birthDate.getFullYear();
     const todayYear = today.getFullYear();
-    const todayTop = dateToTop(today, birthDate);
-    const totalHeight = todayTop + YEAR_HEIGHT * 1.5;
+    const todayTopAbsolute = dateToTop(today, birthDate);
+
+    // Trim dead space when a tag filter is active
+    let viewStart = 0;
+    let viewEndAbs = todayTopAbsolute;
+    if (activeTags.length > 0 && filteredItems.length > 0) {
+      const pad = YEAR_HEIGHT * 0.75;
+      const starts = filteredItems.map(i => dateToTop(parseDate(i.start_date), birthDate));
+      const ends = filteredItems.map(i =>
+        i.end_date ? dateToTop(parseDate(i.end_date), birthDate) : todayTopAbsolute
+      );
+      viewStart = Math.max(0, Math.min(...starts) - pad);
+      viewEndAbs = Math.min(todayTopAbsolute, Math.max(...ends) + pad);
+    }
+
+    const todayTop = todayTopAbsolute - viewStart;
+    const totalHeight = viewEndAbs - viewStart + YEAR_HEIGHT;
 
     const yearMarks = [];
     for (let y = birthYear; y <= todayYear + 1; y++) {
       const date = y === birthYear ? birthDate : new Date(y, 0, 1);
       if (date > today && y > todayYear) break;
+      const top = dateToTop(date, birthDate) - viewStart;
+      if (top < -YEAR_HEIGHT || top > totalHeight + YEAR_HEIGHT) continue;
       yearMarks.push({
         year: y,
         age: y - birthYear,
-        top: dateToTop(date, birthDate),
+        top,
         major: (y - birthYear) % 5 === 0,
       });
     }
@@ -121,22 +138,29 @@ export default function MyTimeline() {
     for (let y = birthYear + 1; y <= todayYear; y++) {
       const date = new Date(y, birthDate.getMonth(), birthDate.getDate());
       if (date > today) break;
+      const top = dateToTop(date, birthDate) - viewStart;
+      if (top < 0 || top > totalHeight) continue;
       birthdays.push({
         year: y,
         age: y - birthYear,
-        top: dateToTop(date, birthDate),
+        top,
         milestone: (y - birthYear) % 5 === 0,
       });
     }
 
-    const withLanes = assignLanes(filteredItems, birthDate, today);
+    const withLanes = assignLanes(filteredItems, birthDate, today).map(i => ({
+      ...i,
+      startTop: i.startTop - viewStart,
+    }));
     const numLanes = withLanes.length > 0
       ? Math.max(...withLanes.map(i => i.lane)) + 1
       : 1;
     const totalWidth = AXIS_WIDTH + numLanes * LANE_WIDTH + 40;
+    const showBirth = viewStart < YEAR_HEIGHT * 0.25;
+    const showToday = todayTop <= totalHeight;
 
-    return { yearMarks, birthdays, todayTop, totalHeight, totalWidth, withLanes };
-  }, [birthDate, today, filteredItems]);
+    return { yearMarks, birthdays, todayTop, totalHeight, totalWidth, withLanes, showBirth, showToday };
+  }, [birthDate, today, filteredItems, activeTags]);
 
   useEffect(() => {
     if (scrollRef.current && tl) {
@@ -144,6 +168,12 @@ export default function MyTimeline() {
       else scrollRef.current.scrollTop = Math.max(0, tl.todayTop - 300);
     }
   }, [tl?.todayTop, orient]);
+
+  useEffect(() => {
+    if (!scrollRef.current) return;
+    if (orient === 'horizontal') scrollRef.current.scrollLeft = 0;
+    else scrollRef.current.scrollTop = 0;
+  }, [activeTags]);
 
   function toggleTag(tag) {
     setActiveTags(p => p.includes(tag) ? p.filter(t => t !== tag) : [...p, tag]);
@@ -251,14 +281,14 @@ export default function MyTimeline() {
 
               {/* Lifeline */}
               <div className="tl-line" style={H
-                ? { top: AXIS_H, left: 0, width: tl.todayTop, height: 3, transform: 'none' }
-                : { left: AXIS_WIDTH, height: tl.todayTop }} />
-              <div className="tl-line tl-line--future" style={H
+                ? { top: AXIS_H, left: 0, width: Math.min(tl.todayTop, innerW), height: 3, transform: 'none' }
+                : { left: AXIS_WIDTH, height: Math.min(tl.todayTop, tl.totalHeight) }} />
+              {tl.showToday && <div className="tl-line tl-line--future" style={H
                 ? { top: AXIS_H, left: tl.todayTop, width: innerW - tl.todayTop, height: 2, transform: 'none' }
-                : { left: AXIS_WIDTH, top: tl.todayTop, height: tl.totalHeight - tl.todayTop }} />
+                : { left: AXIS_WIDTH, top: tl.todayTop, height: tl.totalHeight - tl.todayTop }} />}
 
               {/* Birth marker */}
-              {H ? (
+              {tl.showBirth && (H ? (
                 <div className="tl-birth tl-birth--h" style={{ top: AXIS_H, left: 0 }}>
                   <div className="tl-birth-dot" />
                   <span className="tl-birth-label tl-birth-label--h">Born · {fmtDate(birthdate)}</span>
@@ -268,7 +298,7 @@ export default function MyTimeline() {
                   <div className="tl-birth-dot" />
                   <span className="tl-birth-label">Born · {fmtDate(birthdate)}</span>
                 </div>
-              )}
+              ))}
 
               {/* Year ticks */}
               {tl.yearMarks.map(({ year, age, top, major }) => H ? (
@@ -298,7 +328,7 @@ export default function MyTimeline() {
               ))}
 
               {/* Today marker */}
-              {H ? (
+              {tl.showToday && (H ? (
                 <div className="tl-today tl-today--h" style={{ left: tl.todayTop }}>
                   <div className="tl-today-line-v" style={{ height: innerH }} />
                   <span className="tl-today-label" style={{ top: AXIS_H + 6, left: 6 }}>
@@ -312,7 +342,7 @@ export default function MyTimeline() {
                     Today · Age {today.getFullYear() - birthDate.getFullYear()}
                   </span>
                 </div>
-              )}
+              ))}
 
               {/* Items */}
               {tl.withLanes.map(item => (

@@ -40,6 +40,9 @@ db.exec(`
   )
 `);
 
+// Migrate: add tag_colors if table existed before this column was introduced
+try { db.exec(`ALTER TABLE timeline_settings ADD COLUMN tag_colors TEXT`); } catch (_) {}
+
 db.exec(`
   CREATE TABLE IF NOT EXISTS timeline_items (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
