@@ -370,7 +370,7 @@ export default function MyTimeline() {
       </div>
 
       {showSettings && (
-        <SettingsModal birthdate={birthdate} onSave={saveSettings} onClose={() => setShowSettings(false)} />
+        <SettingsModal birthdate={birthdate} tagColors={tagColors} allTags={allTags} onSave={saveSettings} onClose={() => setShowSettings(false)} />
       )}
       {showForm && (
         <ItemFormModal
@@ -396,7 +396,7 @@ export default function MyTimeline() {
 
 // ── Settings modal ────────────────────────────────────────────────────────────
 
-function SettingsModal({ birthdate, tagColors, allTags, onSave, onClose }) {
+function SettingsModal({ birthdate, tagColors = {}, allTags = [], onSave, onClose }) {
   const [value, setValue] = useState(birthdate || '');
   const [localColors, setLocalColors] = useState({ ...tagColors });
 
