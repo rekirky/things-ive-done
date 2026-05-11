@@ -70,6 +70,7 @@ export default function MyTimeline() {
   const [selectedItem, setSelectedItem] = useState(null);
   const [orient, setOrient] = useState('vertical');
   const scrollRef = useRef(null);
+  const dragState = useRef(null);
 
   const fetchAll = useCallback(() =>
     Promise.all([
@@ -175,6 +176,53 @@ export default function MyTimeline() {
     else scrollRef.current.scrollTop = 0;
   }, [activeTags]);
 
+  useEffect(() => {
+    function onMove(e) {
+      const ds = dragState.current;
+      if (!ds || !scrollRef.current) return;
+      const dx = e.clientX - ds.x;
+      const dy = e.clientY - ds.y;
+      if (Math.abs(dx) + Math.abs(dy) > 4) ds.moved = true;
+      scrollRef.current.scrollLeft = ds.sl - dx;
+      scrollRef.current.scrollTop = ds.st - dy;
+    }
+    function onUp() {
+      if (scrollRef.current) scrollRef.current.style.cursor = '';
+      dragState.current = null;
+    }
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    return () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+  }, []);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    function onCapture(e) {
+      if (dragState.current?.moved) {
+        e.stopPropagation();
+        dragState.current.moved = false;
+      }
+    }
+    el.addEventListener('click', onCapture, true);
+    return () => el.removeEventListener('click', onCapture, true);
+  }, []);
+
+  function onScrollMouseDown(e) {
+    if (e.button !== 0 || !scrollRef.current) return;
+    dragState.current = {
+      x: e.clientX, y: e.clientY,
+      sl: scrollRef.current.scrollLeft,
+      st: scrollRef.current.scrollTop,
+      moved: false,
+    };
+    scrollRef.current.style.cursor = 'grabbing';
+    e.preventDefault();
+  }
+
   function toggleTag(tag) {
     setActiveTags(p => p.includes(tag) ? p.filter(t => t !== tag) : [...p, tag]);
   }
@@ -270,7 +318,7 @@ export default function MyTimeline() {
         </div>
       )}
 
-      <div className="tl-scroll" ref={scrollRef}>
+      <div className="tl-scroll" ref={scrollRef} onMouseDown={onScrollMouseDown}>
         {tl && (() => {
           const H = orient === 'horizontal';
           const numLanes = tl.withLanes.length > 0 ? Math.max(...tl.withLanes.map(i => i.lane)) + 1 : 1;

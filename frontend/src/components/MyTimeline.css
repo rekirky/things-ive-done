@@ -148,6 +148,11 @@
   overflow: auto;
   padding: 28px 24px 60px 24px;
   background: #0d0d1e;
+  cursor: grab;
+  user-select: none;
+}
+.tl-scroll:active {
+  cursor: grabbing;
 }
 
 .tl-inner {
