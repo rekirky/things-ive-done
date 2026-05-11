@@ -410,8 +410,8 @@ export default function MyTimeline() {
                 const stalkStyle = H ? { left: item.px - 1, top: isA ? H_AXIS_Y - sLen : H_AXIS_Y, width: 2, height: sLen }
                                      : { top: item.px - 1,  left: isA ? V_AXIS_X - sLen : V_AXIS_X, height: 2, width: sLen };
                 const boxStyle   = H
-                  ? { left: item.px - BW / 2, top: isA ? H_AXIS_Y - sLen - H_BOX_H : H_AXIS_Y + sLen, width: BW }
-                  : { top: item.px - V_BOX_H / 2, left: isA ? V_AXIS_X - sLen - BW : V_AXIS_X + sLen, width: BW };
+                  ? { left: Math.max(4, item.px - BW / 2), top: isA ? H_AXIS_Y - sLen - H_BOX_H : H_AXIS_Y + sLen, width: BW }
+                  : { top: Math.max(4, item.px - V_BOX_H / 2), left: isA ? V_AXIS_X - sLen - BW : V_AXIS_X + sLen, width: BW };
                 const spanStyle  = H ? { left: item.px, top: H_AXIS_Y - 3, width: spanLen, height: 6 }
                                      : { top: item.px,  left: V_AXIS_X - 3, height: spanLen, width: 6 };
 
