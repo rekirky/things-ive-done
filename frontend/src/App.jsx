@@ -6,7 +6,7 @@ import MyTimeline from './components/MyTimeline.jsx';
 import './App.css';
 
 export default function App() {
-  const [tab, setTab] = useState('map');
+  const [tab, setTab] = useState('bands');
   const [visits, setVisits] = useState([]);
 
   const fetchVisits = () =>
