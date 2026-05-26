@@ -218,6 +218,38 @@ app.delete('/api/timeline/items/:id', (req, res) => {
   res.status(204).end();
 });
 
+// GET all animal encounters
+app.get('/api/animals', (req, res) => {
+  const rows = db.prepare('SELECT * FROM animal_encounters ORDER BY encounter_date DESC').all();
+  res.json(rows);
+});
+
+// POST new animal encounter
+app.post('/api/animals', (req, res) => {
+  const { animal_name, scientific_name, image_url, wiki_extract, encounter_date, location, notes } = req.body;
+  if (!animal_name || !encounter_date) return res.status(400).json({ error: 'animal_name and encounter_date required' });
+  const result = db.prepare(
+    'INSERT INTO animal_encounters (animal_name, scientific_name, image_url, wiki_extract, encounter_date, location, notes) VALUES (?, ?, ?, ?, ?, ?, ?)'
+  ).run(animal_name, scientific_name || null, image_url || null, wiki_extract || null, encounter_date, location || null, notes || null);
+  res.status(201).json({ id: result.lastInsertRowid });
+});
+
+// PUT update animal encounter
+app.put('/api/animals/:id', (req, res) => {
+  const { animal_name, scientific_name, image_url, wiki_extract, encounter_date, location, notes } = req.body;
+  if (!animal_name || !encounter_date) return res.status(400).json({ error: 'animal_name and encounter_date required' });
+  db.prepare(
+    'UPDATE animal_encounters SET animal_name=?, scientific_name=?, image_url=?, wiki_extract=?, encounter_date=?, location=?, notes=? WHERE id=?'
+  ).run(animal_name, scientific_name || null, image_url || null, wiki_extract || null, encounter_date, location || null, notes || null, req.params.id);
+  res.status(200).json({ id: parseInt(req.params.id) });
+});
+
+// DELETE animal encounter
+app.delete('/api/animals/:id', (req, res) => {
+  db.prepare('DELETE FROM animal_encounters WHERE id = ?').run(req.params.id);
+  res.status(204).end();
+});
+
 // Fallback to frontend for SPA routing
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '../frontend/dist', 'index.html'));

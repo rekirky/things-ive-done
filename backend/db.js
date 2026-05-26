@@ -56,4 +56,18 @@ db.exec(`
   )
 `);
 
+db.exec(`
+  CREATE TABLE IF NOT EXISTS animal_encounters (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    animal_name TEXT NOT NULL,
+    scientific_name TEXT,
+    image_url TEXT,
+    wiki_extract TEXT,
+    encounter_date TEXT NOT NULL,
+    location TEXT,
+    notes TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )
+`);
+
 module.exports = db;
