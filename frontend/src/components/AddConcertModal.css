@@ -54,7 +54,8 @@
 }
 
 .acm__field input,
-.acm__field textarea {
+.acm__field textarea,
+.acm__field select {
   background: #0d1117;
   border: 1px solid #0f3460;
   border-radius: 4px;
@@ -67,10 +68,45 @@
 }
 
 .acm__field input:focus,
-.acm__field textarea:focus { outline: none; border-color: #e94560; }
+.acm__field textarea:focus,
+.acm__field select:focus { outline: none; border-color: #e94560; }
 
 .acm__row { display: flex; gap: 0.8rem; }
+.acm__row > .acm__field,
+.acm__row > input { flex: 1; }
 .acm__field--year { flex: 0 0 90px; }
+
+.acm__event-new {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  padding: 0.6rem;
+  background: #0d1117;
+  border: 1px solid #0f3460;
+  border-radius: 6px;
+}
+.acm__event-new input { width: 100%; }
+
+.acm__event-type {
+  display: flex;
+  gap: 1rem;
+  font-size: 0.85rem;
+  color: #aaa;
+}
+.acm__event-type label { display: flex; align-items: center; gap: 0.3rem; cursor: pointer; }
+
+.acm__keep-adding {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  color: #aaa;
+  cursor: pointer;
+  flex: 1;
+  align-self: flex-end;
+  padding-bottom: 0.5rem;
+}
 
 .acm__hint { font-size: 0.78rem; color: #666; }
 

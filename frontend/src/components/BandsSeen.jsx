@@ -15,6 +15,8 @@ const MEDAL_EMOJI = { gold: '🥇', silver: '🥈', bronze: '🥉' };
 
 export default function BandsSeen() {
   const [concerts, setConcerts] = useState([]);
+  const [events, setEvents] = useState([]);
+  const [viewMode, setViewMode] = useState('band'); // 'band' | 'gig'
   const [showAdd, setShowAdd] = useState(false);
   const [editConcert, setEditConcert] = useState(null);
   const [filterAttendees, setFilterAttendees] = useState([]);
@@ -24,8 +26,11 @@ export default function BandsSeen() {
 
   const fetchConcerts = () =>
     fetch('/api/concerts').then(r => r.json()).then(setConcerts);
+  const fetchEvents = () =>
+    fetch('/api/events').then(r => r.json()).then(setEvents);
+  const refetchAll = () => { fetchConcerts(); fetchEvents(); };
 
-  useEffect(() => { fetchConcerts(); }, []);
+  useEffect(() => { refetchAll(); }, []);
 
   const toggleFilter = (person) =>
     setFilterAttendees(prev =>
@@ -74,10 +79,53 @@ export default function BandsSeen() {
 
   const totalConcerts = filteredGroups.reduce((n, g) => n + g.count, 0);
 
+  // Group by shared gig/festival (event_id) instead of by band — one card per night out
+  const eventById = useMemo(() => new Map(events.map(e => [e.id, e])), [events]);
+
+  const gigGroups = useMemo(() => {
+    const byEvent = new Map();
+    const solo = [];
+    concerts.forEach(c => {
+      if (c.event_id) {
+        if (!byEvent.has(c.event_id)) byEvent.set(c.event_id, []);
+        byEvent.get(c.event_id).push(c);
+      } else {
+        solo.push(c);
+      }
+    });
+    const grouped = Array.from(byEvent.entries()).map(([eventId, cs]) => {
+      const sorted = [...cs].sort((a, b) => {
+        if (a.billing === 'headliner' && b.billing !== 'headliner') return -1;
+        if (b.billing === 'headliner' && a.billing !== 'headliner') return 1;
+        return a.band_name.localeCompare(b.band_name);
+      });
+      return { id: `event-${eventId}`, event: eventById.get(Number(eventId)) || null, concerts: sorted, year: Math.max(...cs.map(c => c.year)) };
+    });
+    const soloGroups = solo.map(c => ({ id: `solo-${c.id}`, event: null, concerts: [c], year: c.year }));
+    return [...grouped, ...soloGroups];
+  }, [concerts, eventById]);
+
+  const filteredGigGroups = useMemo(() => {
+    let list = [...gigGroups];
+    if (filterAttendees.length > 0)
+      list = list.filter(g =>
+        g.concerts.some(c => filterAttendees.every(p => (c.attendees || []).includes(p)))
+      );
+    if (filterYear)
+      list = list.filter(g => g.concerts.some(c => c.year === parseInt(filterYear)));
+    if (sortBy === 'year-asc') list.sort((a, b) => a.year - b.year);
+    else list.sort((a, b) => b.year - a.year);
+    return list;
+  }, [gigGroups, filterAttendees, filterYear, sortBy]);
+
   return (
     <div className="bands-seen">
       <div className="bands-seen__toolbar">
         <div className="bands-seen__filters">
+          <div className="view-toggle">
+            <button className={viewMode === 'band' ? 'active' : ''} onClick={() => setViewMode('band')}>By Band</button>
+            <button className={viewMode === 'gig' ? 'active' : ''} onClick={() => setViewMode('gig')}>By Gig</button>
+          </div>
           {allAttendees.map(person => (
             <button
               key={person}
@@ -92,18 +140,20 @@ export default function BandsSeen() {
           )}
         </div>
         <div className="bands-seen__controls">
-          <div className="medal-filters">
-            {['gold', 'silver', 'bronze'].map(m => (
-              <button
-                key={m}
-                className={`medal-filter medal-filter--${m} ${filterMedal === m ? 'active' : ''}`}
-                onClick={() => setFilterMedal(prev => prev === m ? null : m)}
-                title={m.charAt(0).toUpperCase() + m.slice(1)}
-              >
-                {MEDAL_EMOJI[m]}
-              </button>
-            ))}
-          </div>
+          {viewMode === 'band' && (
+            <div className="medal-filters">
+              {['gold', 'silver', 'bronze'].map(m => (
+                <button
+                  key={m}
+                  className={`medal-filter medal-filter--${m} ${filterMedal === m ? 'active' : ''}`}
+                  onClick={() => setFilterMedal(prev => prev === m ? null : m)}
+                  title={m.charAt(0).toUpperCase() + m.slice(1)}
+                >
+                  {MEDAL_EMOJI[m]}
+                </button>
+              ))}
+            </div>
+          )}
           <select value={filterYear} onChange={e => setFilterYear(e.target.value)}>
             <option value="">All years</option>
             {allYears.map(y => <option key={y} value={y}>{y}</option>)}
@@ -111,38 +161,59 @@ export default function BandsSeen() {
           <select value={sortBy} onChange={e => setSortBy(e.target.value)}>
             <option value="year-desc">Newest first</option>
             <option value="year-asc">Oldest first</option>
-            <option value="band-asc">Band A–Z</option>
-            <option value="most-seen">Most seen</option>
+            {viewMode === 'band' && <option value="band-asc">Band A–Z</option>}
+            {viewMode === 'band' && <option value="most-seen">Most seen</option>}
           </select>
           <button className="add-concert-btn" onClick={() => setShowAdd(true)}>+ Add Concert</button>
         </div>
       </div>
 
-      <div className="bands-seen__count">
-        {filteredGroups.length} band{filteredGroups.length !== 1 ? 's' : ''}
-        {' · '}
-        {totalConcerts} concert{totalConcerts !== 1 ? 's' : ''}
-        {filterAttendees.length > 0 && ` with ${filterAttendees.join(' & ')}`}
-      </div>
+      {viewMode === 'band' ? (
+        <>
+          <div className="bands-seen__count">
+            {filteredGroups.length} band{filteredGroups.length !== 1 ? 's' : ''}
+            {' · '}
+            {totalConcerts} concert{totalConcerts !== 1 ? 's' : ''}
+            {filterAttendees.length > 0 && ` with ${filterAttendees.join(' & ')}`}
+          </div>
 
-      <div className="concerts-grid">
-        {filteredGroups.map(group => (
-          <BandGroupCard
-            key={group.latest.spotify_id || group.latest.band_name}
-            group={group}
-            onDelete={fetchConcerts}
-            onEdit={setEditConcert}
-          />
-        ))}
-        {filteredGroups.length === 0 && (
-          <div className="concerts-empty">No concerts yet. Add one!</div>
-        )}
-      </div>
+          <div className="concerts-grid">
+            {filteredGroups.map(group => (
+              <BandGroupCard
+                key={group.latest.spotify_id || group.latest.band_name}
+                group={group}
+                onDelete={refetchAll}
+                onEdit={setEditConcert}
+              />
+            ))}
+            {filteredGroups.length === 0 && (
+              <div className="concerts-empty">No concerts yet. Add one!</div>
+            )}
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="bands-seen__count">
+            {filteredGigGroups.length} gig{filteredGigGroups.length !== 1 ? 's' : ''}
+            {filterAttendees.length > 0 && ` with ${filterAttendees.join(' & ')}`}
+          </div>
+
+          <div className="gigs-grid">
+            {filteredGigGroups.map(group => (
+              <GigCard key={group.id} group={group} onDelete={refetchAll} onEdit={setEditConcert} />
+            ))}
+            {filteredGigGroups.length === 0 && (
+              <div className="concerts-empty">No concerts yet. Add one!</div>
+            )}
+          </div>
+        </>
+      )}
 
       {showAdd && (
         <AddConcertModal
           knownAttendees={allAttendees}
-          onSave={() => { setShowAdd(false); fetchConcerts(); }}
+          onSave={() => { setShowAdd(false); refetchAll(); }}
+          onSaveKeepOpen={refetchAll}
           onClose={() => setShowAdd(false)}
         />
       )}
@@ -150,7 +221,7 @@ export default function BandsSeen() {
         <AddConcertModal
           concert={editConcert}
           knownAttendees={allAttendees}
-          onSave={() => { setEditConcert(null); fetchConcerts(); }}
+          onSave={() => { setEditConcert(null); refetchAll(); }}
           onClose={() => setEditConcert(null)}
         />
       )}
@@ -272,6 +343,77 @@ function ConcertRow({ concert, onDelete, onEdit }) {
         <button className="concert-row__del" onClick={handleDelete} title="Remove">×</button>
       </div>
       {concert.notes && <p className="concert-row__notes">{concert.notes}</p>}
+    </div>
+  );
+}
+
+function GigCard({ group, onDelete, onEdit }) {
+  const { event, concerts } = group;
+  const isLineup = concerts.length > 1;
+  const headliner = concerts.find(c => c.billing === 'headliner') || concerts[0];
+  const support = concerts.filter(c => c.id !== headliner.id);
+  const title = event?.name || headliner.band_name;
+  const dateLabel = event?.date
+    ? new Date(event.date + 'T00:00:00').toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
+    : String(headliner.year);
+  const venue = event?.venue || headliner.location;
+
+  return (
+    <div className={`gig-card ${event?.type === 'festival' ? 'gig-card--festival' : ''}`}>
+      <div className="gig-card__header">
+        {event?.type === 'festival' && <span className="gig-card__type-badge">🎪 Festival</span>}
+        <h3 className="gig-card__title">{title}</h3>
+        <div className="gig-card__meta">
+          <span className="gig-card__date">{dateLabel}</span>
+          {venue && <span className="gig-card__venue">{venue}</span>}
+        </div>
+      </div>
+      <div className="gig-card__lineup">
+        <GigBandRow concert={headliner} isHeadliner={isLineup} showBilling={isLineup} onDelete={onDelete} onEdit={onEdit} />
+        {support.map(c => (
+          <GigBandRow key={c.id} concert={c} isHeadliner={false} showBilling={isLineup} onDelete={onDelete} onEdit={onEdit} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function GigBandRow({ concert, isHeadliner, showBilling, onDelete, onEdit }) {
+  const handleDelete = async () => {
+    if (!confirm(`Remove ${concert.band_name} (${concert.year})?`)) return;
+    await fetch(`/api/concerts/${concert.id}`, { method: 'DELETE' });
+    onDelete();
+  };
+
+  return (
+    <div className={`gig-band-row ${isHeadliner ? 'gig-band-row--headliner' : ''}`}>
+      {concert.spotify_image && (
+        <img className="gig-band-row__img" src={concert.spotify_image} alt={concert.band_name} />
+      )}
+      <div className="gig-band-row__info">
+        <div className="gig-band-row__top">
+          <span className="gig-band-row__name">
+            {concert.spotify_id ? (
+              <a href={`spotify:artist:${concert.spotify_id}`} target="_blank" rel="noreferrer">{concert.band_name}</a>
+            ) : concert.band_name}
+          </span>
+          {showBilling && (
+            <span className={`gig-band-row__tag ${isHeadliner ? 'gig-band-row__tag--headliner' : ''}`}>
+              {isHeadliner ? 'Headliner' : 'Support'}
+            </span>
+          )}
+        </div>
+        {concert.attendees?.length > 0 && (
+          <div className="gig-band-row__attendees">
+            {concert.attendees.map(p => <span key={p} className="attendee-tag small">{p}</span>)}
+          </div>
+        )}
+        {concert.notes && <p className="gig-band-row__notes">{concert.notes}</p>}
+      </div>
+      <div className="gig-band-row__actions">
+        <button onClick={() => onEdit(concert)} title="Edit">✎</button>
+        <button onClick={handleDelete} title="Remove">×</button>
+      </div>
     </div>
   );
 }

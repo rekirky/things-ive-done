@@ -3,7 +3,7 @@ import './AddConcertModal.css';
 
 const PRESET_ATTENDEES = ['Jon', 'Mel', 'Adam', 'Tegan'];
 
-export default function AddConcertModal({ onSave, onClose, concert, knownAttendees = PRESET_ATTENDEES }) {
+export default function AddConcertModal({ onSave, onSaveKeepOpen, onClose, concert, knownAttendees = PRESET_ATTENDEES }) {
   const isEdit = Boolean(concert);
   const [bandQuery, setBandQuery] = useState(concert?.band_name || '');
   const [spotifyResult, setSpotifyResult] = useState(
@@ -19,6 +19,24 @@ export default function AddConcertModal({ onSave, onClose, concert, knownAttende
   const [notes, setNotes] = useState(concert?.notes || '');
   const [saving, setSaving] = useState(false);
   const debounceRef = useRef(null);
+
+  // Gig/festival grouping — lets several bands (headliner + support) share one event
+  const [events, setEvents] = useState([]);
+  const [eventChoice, setEventChoice] = useState(concert?.event_id || 'none');
+  const [newEventName, setNewEventName] = useState('');
+  const [newEventDate, setNewEventDate] = useState('');
+  const [newEventVenue, setNewEventVenue] = useState('');
+  const [newEventType, setNewEventType] = useState('gig');
+  const [billing, setBilling] = useState(concert?.billing || 'headliner');
+  const [keepAdding, setKeepAdding] = useState(false);
+
+  useEffect(() => {
+    fetch('/api/events').then(r => r.json()).then(setEvents).catch(() => {});
+  }, []);
+
+  const selectedExistingEvent = eventChoice !== 'none' && eventChoice !== 'new'
+    ? events.find(e => String(e.id) === String(eventChoice))
+    : null;
 
   useEffect(() => {
     if (!bandQuery.trim() || spotifySkipped) { setSpotifyResult(null); return; }
@@ -38,6 +56,11 @@ export default function AddConcertModal({ onSave, onClose, concert, knownAttende
     return () => clearTimeout(debounceRef.current);
   }, [bandQuery, spotifySkipped]);
 
+  useEffect(() => {
+    if (location.trim()) return;
+    if (selectedExistingEvent?.venue) setLocation(selectedExistingEvent.venue);
+  }, [selectedExistingEvent]);
+
   const toggleAttendee = (person) =>
     setAttendees(prev => prev.includes(person) ? prev.filter(p => p !== person) : [...prev, person]);
 
@@ -52,7 +75,26 @@ export default function AddConcertModal({ onSave, onClose, concert, knownAttende
 
   const handleSave = async () => {
     if (!bandQuery.trim() || !year) return;
+    if (eventChoice === 'new' && !newEventVenue.trim() && !newEventName.trim()) return;
     setSaving(true);
+
+    let eventId = null;
+    if (eventChoice === 'new') {
+      const eventRes = await fetch('/api/events', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newEventName.trim() || null,
+          date: newEventDate || null,
+          venue: newEventVenue.trim() || null,
+          type: newEventType,
+        }),
+      }).then(r => r.json());
+      eventId = eventRes.id;
+    } else if (eventChoice !== 'none') {
+      eventId = parseInt(eventChoice);
+    }
+
     const payload = {
       band_name: spotifyResult?.name || bandQuery.trim(),
       spotify_id: spotifyResult?.id || null,
@@ -62,6 +104,8 @@ export default function AddConcertModal({ onSave, onClose, concert, knownAttende
       location: location.trim() || null,
       attendees,
       notes: notes.trim() || null,
+      event_id: eventId,
+      billing: eventId ? billing : null,
     };
     await fetch(isEdit ? `/api/concerts/${concert.id}` : '/api/concerts', {
       method: isEdit ? 'PUT' : 'POST',
@@ -69,6 +113,22 @@ export default function AddConcertModal({ onSave, onClose, concert, knownAttende
       body: JSON.stringify(payload),
     });
     setSaving(false);
+
+    if (!isEdit && keepAdding && eventId) {
+      // Reset band-specific fields but keep this gig selected, ready for the next act on the bill
+      if (eventChoice === 'new') {
+        setEventChoice(String(eventId));
+        setEvents(prev => [{ id: eventId, name: newEventName.trim() || null, date: newEventDate || null, venue: newEventVenue.trim() || null, type: newEventType }, ...prev]);
+      }
+      setBandQuery('');
+      setSpotifyResult(null);
+      setSpotifySkipped(false);
+      setNotes('');
+      setBilling('support');
+      onSaveKeepOpen?.();
+      return;
+    }
+
     onSave();
   };
 
@@ -127,6 +187,67 @@ export default function AddConcertModal({ onSave, onClose, concert, knownAttende
             <label>Location</label>
             <input value={location} onChange={e => setLocation(e.target.value)} placeholder="Venue, City" />
           </div>
+        </div>
+
+        <div className="acm__field">
+          <label>Gig / Festival</label>
+          <select value={eventChoice} onChange={e => setEventChoice(e.target.value)}>
+            <option value="none">Not part of a group</option>
+            <option value="new">+ New gig or festival...</option>
+            {events.map(ev => (
+              <option key={ev.id} value={ev.id}>
+                {[ev.name, ev.venue, ev.date].filter(Boolean).join(' — ') || `Event #${ev.id}`}
+              </option>
+            ))}
+          </select>
+
+          {eventChoice === 'new' && (
+            <div className="acm__event-new">
+              <input
+                value={newEventName}
+                onChange={e => setNewEventName(e.target.value)}
+                placeholder="Event name (e.g. Lagerstein @ The Metro)"
+              />
+              <div className="acm__row">
+                <input
+                  type="date"
+                  value={newEventDate}
+                  onChange={e => setNewEventDate(e.target.value)}
+                />
+                <input
+                  value={newEventVenue}
+                  onChange={e => setNewEventVenue(e.target.value)}
+                  placeholder="Venue"
+                />
+              </div>
+              <div className="acm__event-type">
+                <label>
+                  <input type="radio" checked={newEventType === 'gig'} onChange={() => setNewEventType('gig')} /> Gig
+                </label>
+                <label>
+                  <input type="radio" checked={newEventType === 'festival'} onChange={() => setNewEventType('festival')} /> Festival
+                </label>
+              </div>
+            </div>
+          )}
+
+          {eventChoice !== 'none' && (
+            <div className="acm__row">
+              <div className="acm__field">
+                <label>Billing</label>
+                <select value={billing} onChange={e => setBilling(e.target.value)}>
+                  <option value="headliner">Headliner</option>
+                  <option value="support">Support</option>
+                </select>
+              </div>
+              {!isEdit && (
+                <label className="acm__keep-adding">
+                  <input type="checkbox" checked={keepAdding} onChange={e => setKeepAdding(e.target.checked)} />
+                  Add another band to this gig after saving
+                </label>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="acm__field">

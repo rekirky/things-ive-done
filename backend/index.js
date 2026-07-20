@@ -108,29 +108,10 @@ app.get('/api/concerts', (req, res) => {
 
 // POST new concert
 app.post('/api/concerts', (req, res) => {
-  const { band_name, spotify_id, spotify_image, spotify_genres, year, location, attendees, notes } = req.body;
+  const { band_name, spotify_id, spotify_image, spotify_genres, year, location, attendees, notes, event_id, billing } = req.body;
   if (!band_name || !year) return res.status(400).json({ error: 'band_name and year required' });
   const result = db.prepare(
-    'INSERT INTO concerts (band_name, spotify_id, spotify_image, spotify_genres, year, location, attendees, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
-  ).run(
-    band_name,
-    spotify_id || null,
-    spotify_image || null,
-    spotify_genres?.length ? JSON.stringify(spotify_genres) : null,
-    year,
-    location || null,
-    attendees?.length ? JSON.stringify(attendees) : null,
-    notes || null
-  );
-  res.status(201).json({ id: result.lastInsertRowid });
-});
-
-// PUT update a concert
-app.put('/api/concerts/:id', (req, res) => {
-  const { band_name, spotify_id, spotify_image, spotify_genres, year, location, attendees, notes } = req.body;
-  if (!band_name || !year) return res.status(400).json({ error: 'band_name and year required' });
-  db.prepare(
-    'UPDATE concerts SET band_name=?, spotify_id=?, spotify_image=?, spotify_genres=?, year=?, location=?, attendees=?, notes=? WHERE id=?'
+    'INSERT INTO concerts (band_name, spotify_id, spotify_image, spotify_genres, year, location, attendees, notes, event_id, billing) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
   ).run(
     band_name,
     spotify_id || null,
@@ -140,6 +121,29 @@ app.put('/api/concerts/:id', (req, res) => {
     location || null,
     attendees?.length ? JSON.stringify(attendees) : null,
     notes || null,
+    event_id || null,
+    billing || null
+  );
+  res.status(201).json({ id: result.lastInsertRowid });
+});
+
+// PUT update a concert
+app.put('/api/concerts/:id', (req, res) => {
+  const { band_name, spotify_id, spotify_image, spotify_genres, year, location, attendees, notes, event_id, billing } = req.body;
+  if (!band_name || !year) return res.status(400).json({ error: 'band_name and year required' });
+  db.prepare(
+    'UPDATE concerts SET band_name=?, spotify_id=?, spotify_image=?, spotify_genres=?, year=?, location=?, attendees=?, notes=?, event_id=?, billing=? WHERE id=?'
+  ).run(
+    band_name,
+    spotify_id || null,
+    spotify_image || null,
+    spotify_genres?.length ? JSON.stringify(spotify_genres) : null,
+    year,
+    location || null,
+    attendees?.length ? JSON.stringify(attendees) : null,
+    notes || null,
+    event_id || null,
+    billing || null,
     req.params.id
   );
   res.status(200).json({ id: parseInt(req.params.id) });
@@ -148,6 +152,37 @@ app.put('/api/concerts/:id', (req, res) => {
 // DELETE a concert
 app.delete('/api/concerts/:id', (req, res) => {
   db.prepare('DELETE FROM concerts WHERE id = ?').run(req.params.id);
+  res.status(204).end();
+});
+
+// GET all events (gigs/festivals that group multiple concert entries together)
+app.get('/api/events', (req, res) => {
+  const rows = db.prepare('SELECT * FROM events ORDER BY date DESC, created_at DESC').all();
+  res.json(rows);
+});
+
+// POST new event
+app.post('/api/events', (req, res) => {
+  const { name, date, venue, type } = req.body;
+  const result = db.prepare(
+    'INSERT INTO events (name, date, venue, type) VALUES (?, ?, ?, ?)'
+  ).run(name || null, date || null, venue || null, type === 'festival' ? 'festival' : 'gig');
+  res.status(201).json({ id: result.lastInsertRowid });
+});
+
+// PUT update an event
+app.put('/api/events/:id', (req, res) => {
+  const { name, date, venue, type } = req.body;
+  db.prepare(
+    'UPDATE events SET name=?, date=?, venue=?, type=? WHERE id=?'
+  ).run(name || null, date || null, venue || null, type === 'festival' ? 'festival' : 'gig', req.params.id);
+  res.status(200).json({ id: parseInt(req.params.id) });
+});
+
+// DELETE an event (ungroups its concerts rather than deleting them)
+app.delete('/api/events/:id', (req, res) => {
+  db.prepare('UPDATE concerts SET event_id = NULL, billing = NULL WHERE event_id = ?').run(req.params.id);
+  db.prepare('DELETE FROM events WHERE id = ?').run(req.params.id);
   res.status(204).end();
 });
 

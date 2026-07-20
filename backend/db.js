@@ -33,6 +33,21 @@ db.exec(`
 `);
 
 db.exec(`
+  CREATE TABLE IF NOT EXISTS events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT,
+    date TEXT,
+    venue TEXT,
+    type TEXT NOT NULL DEFAULT 'gig',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )
+`);
+
+// Migrate: link concerts to an event (gig/festival) and record each band's billing on that bill
+try { db.exec(`ALTER TABLE concerts ADD COLUMN event_id INTEGER REFERENCES events(id)`); } catch (_) {}
+try { db.exec(`ALTER TABLE concerts ADD COLUMN billing TEXT`); } catch (_) {}
+
+db.exec(`
   CREATE TABLE IF NOT EXISTS timeline_settings (
     id INTEGER PRIMARY KEY,
     birthdate TEXT,
