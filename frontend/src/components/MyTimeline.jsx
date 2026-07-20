@@ -20,6 +20,8 @@ const V_BOX_H     = 34;
 
 const DOT_R    = 5;
 const MIN_GAP  = 182;   // min px between box centres on the same side/lane
+const FULL_MIN_LEN = 40; // minimum rendered length of a full-duration box
+const FULL_GAP     = 10; // breathing room between adjacent full-duration boxes
 
 const TAG_PALETTE = [
   '#e94560', '#60a5fa', '#4ade80', '#f59e0b',
@@ -50,23 +52,35 @@ function fmtDate(str) {
   return d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
 }
 
-function assignStalks(items, birthDate, today) {
+// Lane packing: items are processed in start-date order and, within a side,
+// a lane is reused once its previous occupant's footprint has ended — the
+// standard greedy interval-partitioning algorithm. In full-timeline mode the
+// footprint is the item's true rendered extent (start → end/today) so two
+// items only share a lane when they don't actually overlap in time; outside
+// full mode every item gets a flat MIN_GAP footprint, matching the original
+// fixed-size-box spacing.
+function assignStalks(items, birthDate, today, showFull) {
   const sorted = [...items].sort((a, b) => parseDate(a.start_date) - parseDate(b.start_date));
   const todayAbs = dateToPx(today, birthDate);
-  const used = { a: [], b: [] };
+  const laneEnd = { a: [], b: [] }; // laneEnd[side][lane] = px at which that lane is next free
   return sorted.map((item, idx) => {
     const px    = dateToPx(parseDate(item.start_date), birthDate);
     const endPx = item.end_date ? dateToPx(parseDate(item.end_date), birthDate) : todayAbs;
+    const span  = Math.max(0, endPx - px);
+    const footprintEnd = showFull && span > 0
+      ? px + Math.max(span, FULL_MIN_LEN) + FULL_GAP
+      : px + MIN_GAP;
+
     const findLane = s => {
       let l = 0;
-      while (used[s].some(u => u.lane === l && Math.abs(u.px - px) < MIN_GAP)) l++;
+      while (laneEnd[s][l] !== undefined && laneEnd[s][l] > px) l++;
       return l;
     };
     const la = findLane('a'), lb = findLane('b');
     // prefer alternating; tie-break to side with lower lane needed
     const side = (idx % 2 === 0 ? la <= lb : lb <= la) ? 'a' : 'b';
     const lane = side === 'a' ? la : lb;
-    used[side].push({ px, lane });
+    laneEnd[side][lane] = footprintEnd;
     return { ...item, px, endPx, side, lane };
   });
 }
@@ -153,7 +167,7 @@ export default function MyTimeline() {
       birthdays.push({ year: y, age: y - birthYear, top, milestone: (y - birthYear) % 5 === 0 });
     }
 
-    const pins = assignStalks(filteredItems, birthDate, today).map(p => ({
+    const pins = assignStalks(filteredItems, birthDate, today, showFull).map(p => ({
       ...p,
       px:    p.px    - viewStart,
       endPx: p.endPx - viewStart,
@@ -163,7 +177,7 @@ export default function MyTimeline() {
     const showToday = todayTop <= timePx;
 
     return { yearMarks, birthdays, todayTop, timePx, pins, showBirth, showToday };
-  }, [birthDate, today, filteredItems, activeTags]);
+  }, [birthDate, today, filteredItems, activeTags, showFull]);
 
   // Cross-axis layout — how far pins stack out to each side of the time axis.
   // Computed dynamically (rather than a fixed offset) so a busy cluster of
@@ -441,8 +455,8 @@ export default function MyTimeline() {
                 const color  = item.tags?.length ? tc(item.tags[0]) : '#6060a0';
                 const isSel  = selectedItem?.id === item.id;
                 const spanLen = Math.max(0, item.endPx - item.px);
-                const full   = showFull && !!item.end_date && spanLen > 0;
-                const boxLen = full ? Math.max(spanLen, 40) : (H ? H_BOX_W : V_BOX_W);
+                const full   = showFull && spanLen > 0;
+                const boxLen = full ? Math.max(spanLen, FULL_MIN_LEN) : (H ? H_BOX_W : V_BOX_W);
                 const alongEnd = item.px + boxLen;
 
                 const dotStyle    = H ? { left: item.px - DOT_R, top: axisPos - DOT_R }
