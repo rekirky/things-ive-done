@@ -163,12 +163,41 @@ export default function MyTimeline() {
     return { yearMarks, birthdays, todayTop, timePx, pins, showBirth, showToday };
   }, [birthDate, today, filteredItems, activeTags]);
 
+  // Cross-axis layout — how far pins stack out to each side of the time axis.
+  // Computed dynamically (rather than a fixed offset) so a busy cluster of
+  // items never needs negative coordinates, which would render unreachably
+  // off the top/left edge of the scroll area.
+  const layout = useMemo(() => {
+    if (!tl) return null;
+    const H = orient === 'horizontal';
+    const crossBase  = H ? H_AXIS_Y : V_AXIS_X;
+    const stalkBase  = H ? H_STALK_BASE : V_STALK_BASE;
+    const stalkStep  = H ? H_STALK_STEP : V_STALK_STEP;
+    const crossBoxLen = H ? H_BOX_H : V_BOX_W;
+
+    const maxLane = side => tl.pins.reduce((m, p) => p.side === side ? Math.max(m, p.lane) : m, 0);
+    const extentFor = lane => stalkBase + lane * stalkStep + crossBoxLen + 56;
+    const aExtent = extentFor(maxLane('a'));
+    const bExtent = extentFor(maxLane('b'));
+
+    const axisPos = Math.max(crossBase, aExtent);
+    const innerW = H ? tl.timePx + 80 : axisPos + bExtent;
+    const innerH = H ? axisPos + bExtent : tl.timePx;
+
+    return { H, axisPos, innerW, innerH };
+  }, [tl, orient]);
+
   useEffect(() => {
-    if (scrollRef.current && tl) {
-      if (orient === 'horizontal') scrollRef.current.scrollLeft = Math.max(0, tl.todayTop - 500);
-      else scrollRef.current.scrollTop = Math.max(0, tl.todayTop - 300);
+    if (!scrollRef.current || !tl || !layout) return;
+    const el = scrollRef.current;
+    if (layout.H) {
+      el.scrollLeft = Math.max(0, tl.todayTop - el.clientWidth / 2);
+      el.scrollTop  = Math.max(0, layout.axisPos - el.clientHeight / 2);
+    } else {
+      el.scrollTop  = Math.max(0, tl.todayTop - el.clientHeight / 2);
+      el.scrollLeft = Math.max(0, layout.axisPos - el.clientWidth / 2);
     }
-  }, [tl?.todayTop, orient]);
+  }, [tl?.todayTop, layout]);
 
   useEffect(() => {
     if (!scrollRef.current) return;
@@ -319,35 +348,27 @@ export default function MyTimeline() {
       )}
 
       <div className="tl-scroll" ref={scrollRef} onMouseDown={onScrollMouseDown}>
-        {tl && (() => {
-          const H = orient === 'horizontal';
-          const axisY = H ? H_AXIS_Y : 0;
-          const axisX = H ? 0 : V_AXIS_X;
-
-          const maxBLane = tl.pins.reduce((m, p) => p.side === 'b' ? Math.max(m, p.lane) : m, 0);
-          const bExtent = (H ? H_STALK_BASE : V_STALK_BASE) + maxBLane * (H ? H_STALK_STEP : V_STALK_STEP) + (H ? H_BOX_H : V_BOX_W) + 56;
-
-          const innerW = H ? tl.timePx + 80 : V_AXIS_X + bExtent;
-          const innerH = H ? H_AXIS_Y + bExtent : tl.timePx;
+        {tl && layout && (() => {
+          const { H, axisPos, innerW, innerH } = layout;
 
           return (
             <div className="tl-inner" style={{ width: innerW, height: innerH }}>
 
               {/* Axis — past segment */}
               <div className="tl-axis-past" style={H
-                ? { top: H_AXIS_Y - 2, left: 0, width: Math.min(tl.todayTop, innerW), height: 4 }
-                : { left: V_AXIS_X - 2, top: 0, height: Math.min(tl.todayTop, innerH), width: 4 }} />
+                ? { top: axisPos - 2, left: 0, width: Math.min(tl.todayTop, innerW), height: 4 }
+                : { left: axisPos - 2, top: 0, height: Math.min(tl.todayTop, innerH), width: 4 }} />
               {/* Axis — future segment */}
               {tl.showToday && (
                 <div className="tl-axis-future" style={H
-                  ? { top: H_AXIS_Y - 1, left: tl.todayTop, width: innerW - tl.todayTop, height: 2 }
-                  : { left: V_AXIS_X - 1, top: tl.todayTop, height: innerH - tl.todayTop, width: 2 }} />
+                  ? { top: axisPos - 1, left: tl.todayTop, width: innerW - tl.todayTop, height: 2 }
+                  : { left: axisPos - 1, top: tl.todayTop, height: innerH - tl.todayTop, width: 2 }} />
               )}
 
               {/* Birth marker */}
               {tl.showBirth && (
                 <div className={`tl-birth${H ? ' tl-birth--h' : ''}`}
-                     style={H ? { left: 4, top: H_AXIS_Y } : { top: 0, left: V_AXIS_X }}>
+                     style={H ? { left: 4, top: axisPos } : { top: 0, left: axisPos }}>
                   <div className="tl-birth-dot" />
                   <span className={`tl-birth-label${H ? ' tl-birth-label--h' : ''}`}>Born · {fmtDate(birthdate)}</span>
                 </div>
@@ -356,7 +377,7 @@ export default function MyTimeline() {
               {/* Year ticks */}
               {tl.yearMarks.map(({ year, age, top, major }) => H ? (
                 <div key={year} className={`tl-year tl-year--h${major ? ' tl-year--major' : ''}`}
-                     style={{ left: top, top: H_AXIS_Y }}>
+                     style={{ left: top, top: axisPos }}>
                   <div className="tl-year-tick-h" />
                   <span className="tl-year-num">{year}</span>
                   <span className="tl-year-age">{age}</span>
@@ -365,7 +386,7 @@ export default function MyTimeline() {
                 <div key={year} className={`tl-year${major ? ' tl-year--major' : ''}`} style={{ top }}>
                   <span className="tl-year-num">{year}</span>
                   <span className="tl-year-age">age {age}</span>
-                  <div className="tl-year-tick" style={{ left: V_AXIS_X - 10 }} />
+                  <div className="tl-year-tick" style={{ left: axisPos - 10 }} />
                 </div>
               ))}
 
@@ -373,7 +394,7 @@ export default function MyTimeline() {
               {tl.birthdays.map(({ year, age, top, milestone }) => (
                 <div key={`bd-${year}`}
                      className={`tl-birthday${milestone ? ' tl-birthday--big' : ''}`}
-                     style={H ? { left: top, top: H_AXIS_Y + 14, transform: 'translateX(-50%)' } : { top, left: V_AXIS_X + 10 }}
+                     style={H ? { left: top, top: axisPos + 14, transform: 'translateX(-50%)' } : { top, left: axisPos + 10 }}
                      title={`Birthday — Age ${age}`}>
                   🎂{milestone && <span className="tl-bd-label">Age {age}</span>}
                 </div>
@@ -383,14 +404,14 @@ export default function MyTimeline() {
               {tl.showToday && (H ? (
                 <div className="tl-today tl-today--h" style={{ left: tl.todayTop }}>
                   <div className="tl-today-line-v" style={{ height: innerH }} />
-                  <span className="tl-today-label" style={{ top: H_AXIS_Y + 14, left: 6 }}>
+                  <span className="tl-today-label" style={{ top: axisPos + 14, left: 6 }}>
                     Today · Age {today.getFullYear() - birthDate.getFullYear()}
                   </span>
                 </div>
               ) : (
                 <div className="tl-today" style={{ top: tl.todayTop }}>
                   <div className="tl-today-line" style={{ width: innerW }} />
-                  <span className="tl-today-label" style={{ left: V_AXIS_X + 14 }}>
+                  <span className="tl-today-label" style={{ left: axisPos + 14 }}>
                     Today · Age {today.getFullYear() - birthDate.getFullYear()}
                   </span>
                 </div>
@@ -405,15 +426,15 @@ export default function MyTimeline() {
                 const spanLen = Math.max(0, item.endPx - item.px);
                 const BW = H ? H_BOX_W : V_BOX_W;
 
-                const dotStyle   = H ? { left: item.px - DOT_R, top: H_AXIS_Y - DOT_R }
-                                     : { top: item.px - DOT_R,  left: V_AXIS_X - DOT_R };
-                const stalkStyle = H ? { left: item.px - 1, top: isA ? H_AXIS_Y - sLen : H_AXIS_Y, width: 2, height: sLen }
-                                     : { top: item.px - 1,  left: isA ? V_AXIS_X - sLen : V_AXIS_X, height: 2, width: sLen };
+                const dotStyle   = H ? { left: item.px - DOT_R, top: axisPos - DOT_R }
+                                     : { top: item.px - DOT_R,  left: axisPos - DOT_R };
+                const stalkStyle = H ? { left: item.px - 1, top: isA ? axisPos - sLen : axisPos, width: 2, height: sLen }
+                                     : { top: item.px - 1,  left: isA ? axisPos - sLen : axisPos, height: 2, width: sLen };
                 const boxStyle   = H
-                  ? { left: Math.max(4, item.px - BW / 2), top: isA ? H_AXIS_Y - sLen - H_BOX_H : H_AXIS_Y + sLen, width: BW }
-                  : { top: Math.max(4, item.px - V_BOX_H / 2), left: isA ? V_AXIS_X - sLen - BW : V_AXIS_X + sLen, width: BW };
-                const spanStyle  = H ? { left: item.px, top: H_AXIS_Y - 3, width: spanLen, height: 6 }
-                                     : { top: item.px,  left: V_AXIS_X - 3, height: spanLen, width: 6 };
+                  ? { left: Math.max(4, item.px - BW / 2), top: isA ? axisPos - sLen - H_BOX_H : axisPos + sLen, width: BW }
+                  : { top: Math.max(4, item.px - V_BOX_H / 2), left: isA ? axisPos - sLen - BW : axisPos + sLen, width: BW };
+                const spanStyle  = H ? { left: item.px, top: axisPos - 3, width: spanLen, height: 6 }
+                                     : { top: item.px,  left: axisPos - 3, height: spanLen, width: 6 };
 
                 return (
                   <Fragment key={item.id}>

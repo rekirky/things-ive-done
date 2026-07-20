@@ -150,6 +150,9 @@
   background: #0d0d1e;
   cursor: grab;
   user-select: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .tl-scroll:active {
   cursor: grabbing;
@@ -157,7 +160,7 @@
 
 .tl-inner {
   position: relative;
-  min-width: 100%;
+  flex-shrink: 0;
 }
 
 /* ── Lifeline ── */

@@ -3,9 +3,11 @@
   gap: 2rem;
   padding: 2rem;
   flex: 1;
+  min-height: 0;
   max-width: 1200px;
   margin: 0 auto;
   width: 100%;
+  overflow: auto;
 }
 
 .admin-form {

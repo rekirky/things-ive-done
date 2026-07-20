@@ -1,5 +1,6 @@
 .map-container {
   flex: 1;
+  min-height: 0;
   position: relative;
   background: #0d1117;
   overflow: hidden;
