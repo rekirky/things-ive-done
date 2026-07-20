@@ -101,6 +101,23 @@
   color: #e94560;
 }
 
+.tl-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 4px;
+  color: #a0a0c8;
+  font-size: 13px;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.tl-checkbox input {
+  accent-color: #e94560;
+  cursor: pointer;
+}
+
 .tl-btn--danger:hover {
   background: #e94560;
   color: #fff;
@@ -150,9 +167,6 @@
   background: #0d0d1e;
   cursor: grab;
   user-select: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 .tl-scroll:active {
   cursor: grabbing;
@@ -160,7 +174,6 @@
 
 .tl-inner {
   position: relative;
-  flex-shrink: 0;
 }
 
 /* ── Lifeline ── */
@@ -929,6 +942,14 @@ input[type='date'].tl-input {
   background: #16213e;
   box-shadow: 0 2px 16px rgba(0,0,0,0.5), 0 0 0 2px var(--ic, #5050a0);
   z-index: 5;
+}
+
+.tl-pin-box--full {
+  background: linear-gradient(135deg, color-mix(in srgb, var(--ic, #5050a0) 22%, #12152a), #12152a 85%);
+}
+.tl-pin-box--full:hover,
+.tl-pin-box--full.tl-pin-box--open {
+  background: linear-gradient(135deg, color-mix(in srgb, var(--ic, #5050a0) 30%, #16213e), #16213e 85%);
 }
 
 .tl-pin-title {

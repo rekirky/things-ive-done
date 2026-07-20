@@ -81,7 +81,9 @@ export default function MyTimeline() {
   const [editingItem, setEditingItem] = useState(null);
   const [selectedItem, setSelectedItem] = useState(null);
   const [orient, setOrient] = useState('horizontal');
+  const [showFull, setShowFull] = useState(false);
   const scrollRef = useRef(null);
+  const innerRef = useRef(null);
   const dragState = useRef(null);
 
   const fetchAll = useCallback(() =>
@@ -198,6 +200,17 @@ export default function MyTimeline() {
       el.scrollLeft = Math.max(0, layout.axisPos - el.clientWidth / 2);
     }
   }, [tl?.todayTop, layout]);
+
+  // When the timeline is smaller than the viewport, center it via margin
+  // rather than flex alignment — flex `justify-content: center` on an
+  // overflowing child doesn't reliably expose the full scrollable range in
+  // every browser, which would make the far end of a big timeline unreachable.
+  useEffect(() => {
+    if (!scrollRef.current || !innerRef.current || !layout) return;
+    const el = scrollRef.current;
+    innerRef.current.style.marginLeft = `${Math.max(0, (el.clientWidth - layout.innerW) / 2)}px`;
+    innerRef.current.style.marginTop  = `${Math.max(0, (el.clientHeight - layout.innerH) / 2)}px`;
+  }, [layout]);
 
   useEffect(() => {
     if (!scrollRef.current) return;
@@ -322,6 +335,10 @@ export default function MyTimeline() {
           >
             {orient === 'horizontal' ? '↕ Vertical' : '↔ Horizontal'}
           </button>
+          <label className="tl-checkbox">
+            <input type="checkbox" checked={showFull} onChange={e => setShowFull(e.target.checked)} />
+            Show full timeline
+          </label>
           <button className="tl-btn" onClick={() => setShowSettings(true)}>⚙ Settings</button>
         </div>
       </div>
@@ -352,7 +369,7 @@ export default function MyTimeline() {
           const { H, axisPos, innerW, innerH } = layout;
 
           return (
-            <div className="tl-inner" style={{ width: innerW, height: innerH }}>
+            <div className="tl-inner" ref={innerRef} style={{ width: innerW, height: innerH }}>
 
               {/* Axis — past segment */}
               <div className="tl-axis-past" style={H
@@ -424,15 +441,27 @@ export default function MyTimeline() {
                 const color  = item.tags?.length ? tc(item.tags[0]) : '#6060a0';
                 const isSel  = selectedItem?.id === item.id;
                 const spanLen = Math.max(0, item.endPx - item.px);
-                const BW = H ? H_BOX_W : V_BOX_W;
+                const full   = showFull && !!item.end_date && spanLen > 0;
+                const boxLen = full ? Math.max(spanLen, 40) : (H ? H_BOX_W : V_BOX_W);
+                const alongEnd = item.px + boxLen;
 
-                const dotStyle   = H ? { left: item.px - DOT_R, top: axisPos - DOT_R }
-                                     : { top: item.px - DOT_R,  left: axisPos - DOT_R };
-                const stalkStyle = H ? { left: item.px - 1, top: isA ? axisPos - sLen : axisPos, width: 2, height: sLen }
-                                     : { top: item.px - 1,  left: isA ? axisPos - sLen : axisPos, height: 2, width: sLen };
-                const boxStyle   = H
-                  ? { left: Math.max(4, item.px - BW / 2), top: isA ? axisPos - sLen - H_BOX_H : axisPos + sLen, width: BW }
-                  : { top: Math.max(4, item.px - V_BOX_H / 2), left: isA ? axisPos - sLen - BW : axisPos + sLen, width: BW };
+                const dotStyle    = H ? { left: item.px - DOT_R, top: axisPos - DOT_R }
+                                      : { top: item.px - DOT_R,  left: axisPos - DOT_R };
+                const dotEndStyle = H ? { left: alongEnd - DOT_R, top: axisPos - DOT_R }
+                                      : { top: alongEnd - DOT_R,  left: axisPos - DOT_R };
+                const stalkStyle    = H ? { left: item.px - 1, top: isA ? axisPos - sLen : axisPos, width: 2, height: sLen }
+                                        : { top: item.px - 1,  left: isA ? axisPos - sLen : axisPos, height: 2, width: sLen };
+                const stalkEndStyle = H ? { left: alongEnd - 1, top: isA ? axisPos - sLen : axisPos, width: 2, height: sLen }
+                                        : { top: alongEnd - 1,  left: isA ? axisPos - sLen : axisPos, height: 2, width: sLen };
+
+                const boxCrossStyle = H
+                  ? { top: isA ? axisPos - sLen - H_BOX_H : axisPos + sLen }
+                  : { left: isA ? axisPos - sLen - V_BOX_W : axisPos + sLen, width: V_BOX_W };
+                const boxAlongStyle = H
+                  ? (full ? { left: item.px, width: boxLen } : { left: Math.max(4, item.px - H_BOX_W / 2), width: H_BOX_W })
+                  : (full ? { top: item.px, height: boxLen } : { top: Math.max(4, item.px - V_BOX_H / 2) });
+                const boxStyle = { ...boxCrossStyle, ...boxAlongStyle };
+
                 const spanStyle  = H ? { left: item.px, top: axisPos - 3, width: spanLen, height: 6 }
                                      : { top: item.px,  left: axisPos - 3, height: spanLen, width: 6 };
 
@@ -442,9 +471,11 @@ export default function MyTimeline() {
                       <div className="tl-span" style={{ ...spanStyle, background: color }} />
                     )}
                     <div className="tl-pin-dot"   style={{ ...dotStyle,   background: color }} />
+                    {full && <div className="tl-pin-dot" style={{ ...dotEndStyle, background: color }} />}
                     <div className="tl-pin-stalk" style={{ ...stalkStyle, background: color }} />
+                    {full && <div className="tl-pin-stalk" style={{ ...stalkEndStyle, background: color }} />}
                     <div
-                      className={`tl-pin-box${isSel ? ' tl-pin-box--open' : ''}`}
+                      className={`tl-pin-box${isSel ? ' tl-pin-box--open' : ''}${full ? ' tl-pin-box--full' : ''}`}
                       style={{ ...boxStyle, '--ic': color }}
                       onClick={e => { e.stopPropagation(); setSelectedItem(isSel ? null : item); }}
                     >
