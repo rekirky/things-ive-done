@@ -350,13 +350,15 @@ function ConcertRow({ concert, onDelete, onEdit }) {
 function GigCard({ group, onDelete, onEdit }) {
   const { event, concerts } = group;
   const isLineup = concerts.length > 1;
-  const headliner = concerts.find(c => c.billing === 'headliner') || concerts[0];
-  const support = concerts.filter(c => c.id !== headliner.id);
-  const title = event?.name || headliner.band_name;
+  const billedHeadliners = concerts.filter(c => c.billing === 'headliner');
+  // Fall back to treating the first act as headliner only when nobody's been billed as one
+  const headliners = billedHeadliners.length > 0 ? billedHeadliners : [concerts[0]];
+  const support = concerts.filter(c => !headliners.includes(c));
+  const title = event?.name || headliners.map(c => c.band_name).join(' & ');
   const dateLabel = event?.date
     ? new Date(event.date + 'T00:00:00').toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
-    : String(headliner.year);
-  const venue = event?.venue || headliner.location;
+    : String(headliners[0].year);
+  const venue = event?.venue || headliners[0].location;
 
   return (
     <div className={`gig-card ${event?.type === 'festival' ? 'gig-card--festival' : ''}`}>
@@ -369,7 +371,9 @@ function GigCard({ group, onDelete, onEdit }) {
         </div>
       </div>
       <div className="gig-card__lineup">
-        <GigBandRow concert={headliner} isHeadliner={isLineup} showBilling={isLineup} onDelete={onDelete} onEdit={onEdit} />
+        {headliners.map(c => (
+          <GigBandRow key={c.id} concert={c} isHeadliner={isLineup} showBilling={isLineup} onDelete={onDelete} onEdit={onEdit} />
+        ))}
         {support.map(c => (
           <GigBandRow key={c.id} concert={c} isHeadliner={false} showBilling={isLineup} onDelete={onDelete} onEdit={onEdit} />
         ))}
