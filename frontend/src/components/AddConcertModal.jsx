@@ -20,6 +20,12 @@ export default function AddConcertModal({ onSave, onSaveKeepOpen, onClose, conce
   const [saving, setSaving] = useState(false);
   const debounceRef = useRef(null);
 
+  // Poster — paste an image URL and the backend downloads & stores a local copy
+  const [posterUrl, setPosterUrl] = useState(concert?.poster_url || '');
+  const [posterInput, setPosterInput] = useState('');
+  const [posterDownloading, setPosterDownloading] = useState(false);
+  const [posterError, setPosterError] = useState(null);
+
   // Gig/festival grouping — lets several bands (headliner + support) share one event
   const [events, setEvents] = useState([]);
   const [eventChoice, setEventChoice] = useState(concert?.event_id || 'none');
@@ -64,6 +70,27 @@ export default function AddConcertModal({ onSave, onSaveKeepOpen, onClose, conce
   const toggleAttendee = (person) =>
     setAttendees(prev => prev.includes(person) ? prev.filter(p => p !== person) : [...prev, person]);
 
+  const downloadPoster = async () => {
+    if (!posterInput.trim()) return;
+    setPosterDownloading(true);
+    setPosterError(null);
+    try {
+      const r = await fetch('/api/posters/download', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: posterInput.trim() }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || 'Download failed');
+      setPosterUrl(d.url);
+      setPosterInput('');
+    } catch (err) {
+      setPosterError(err.message);
+    } finally {
+      setPosterDownloading(false);
+    }
+  };
+
   const addCustomAttendee = () => {
     const name = customAttendee.trim();
     if (!name) return;
@@ -106,6 +133,7 @@ export default function AddConcertModal({ onSave, onSaveKeepOpen, onClose, conce
       notes: notes.trim() || null,
       event_id: eventId,
       billing: eventId ? billing : null,
+      poster_url: posterUrl || null,
     };
     await fetch(isEdit ? `/api/concerts/${concert.id}` : '/api/concerts', {
       method: isEdit ? 'PUT' : 'POST',
@@ -124,6 +152,7 @@ export default function AddConcertModal({ onSave, onSaveKeepOpen, onClose, conce
       setSpotifyResult(null);
       setSpotifySkipped(false);
       setNotes('');
+      setPosterUrl('');
       setBilling('support');
       onSaveKeepOpen?.();
       return;
@@ -279,6 +308,36 @@ export default function AddConcertModal({ onSave, onSaveKeepOpen, onClose, conce
           <label>Notes</label>
           <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={3} placeholder="Opening acts, memories..." />
         </div>
+
+        {eventChoice === 'none' ? (
+          <div className="acm__field">
+            <label>Poster</label>
+            <div className="acm__poster-search">
+              {posterUrl && (
+                <div className="acm__poster-preview">
+                  <img src={posterUrl} alt="Poster" />
+                  <div className="acm__poster-preview__actions">
+                    <button type="button" onClick={() => setPosterUrl('')}>Remove</button>
+                  </div>
+                </div>
+              )}
+              <div className="acm__row">
+                <input
+                  value={posterInput}
+                  onChange={e => setPosterInput(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), downloadPoster())}
+                  placeholder="Paste image URL..."
+                />
+                <button type="button" onClick={downloadPoster} disabled={posterDownloading || !posterInput.trim()}>
+                  {posterDownloading ? 'Downloading...' : 'Use image'}
+                </button>
+              </div>
+              {posterError && <div className="acm__hint acm__poster-error">{posterError}</div>}
+            </div>
+          </div>
+        ) : (
+          <div className="acm__hint">Poster is set on the gig — use the ✎ on the gig card to add one.</div>
+        )}
 
         <div className="acm__actions">
           <button onClick={onClose}>Cancel</button>

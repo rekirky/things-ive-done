@@ -2,7 +2,12 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const fs = require('fs');
+const crypto = require('crypto');
 const db = require('./db');
+
+const POSTERS_DIR = path.join(__dirname, 'data', 'posters');
+fs.mkdirSync(POSTERS_DIR, { recursive: true });
 
 // Spotify token cache — token lasts 1 hour, refresh 5 min early
 let spotifyToken = null;
@@ -41,6 +46,7 @@ app.use(express.json({ limit: '10mb' }));
 
 // Serve frontend in production
 app.use(express.static(path.join(__dirname, '../frontend/dist')));
+app.use('/posters', express.static(POSTERS_DIR));
 
 // GET all visits
 app.get('/api/visits', (req, res) => {
@@ -96,6 +102,43 @@ app.get('/api/spotify/artist', async (req, res) => {
   }
 });
 
+// POST a poster image URL — downloads it and stores a local copy, returning the local path to save
+const POSTER_EXT_BY_TYPE = { 'image/jpeg': '.jpg', 'image/png': '.png', 'image/webp': '.webp', 'image/gif': '.gif' };
+const BLOCKED_POSTER_HOSTS = new Set(['localhost', '127.0.0.1', '0.0.0.0', '::1']);
+
+app.post('/api/posters/download', async (req, res) => {
+  const { url } = req.body;
+  if (!url) return res.status(400).json({ error: 'url required' });
+
+  let parsed;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return res.status(400).json({ error: 'Invalid URL' });
+  }
+  if (!['http:', 'https:'].includes(parsed.protocol) || BLOCKED_POSTER_HOSTS.has(parsed.hostname)) {
+    return res.status(400).json({ error: 'URL not allowed' });
+  }
+
+  try {
+    const r = await fetch(url);
+    if (!r.ok) return res.status(400).json({ error: `Failed to fetch image (${r.status})` });
+
+    const contentType = (r.headers.get('content-type') || '').split(';')[0].trim();
+    const ext = POSTER_EXT_BY_TYPE[contentType];
+    if (!ext) return res.status(400).json({ error: 'URL did not return a supported image type' });
+
+    const buf = Buffer.from(await r.arrayBuffer());
+    if (buf.length > 15 * 1024 * 1024) return res.status(400).json({ error: 'Image too large (max 15MB)' });
+
+    const filename = crypto.randomBytes(16).toString('hex') + ext;
+    fs.writeFileSync(path.join(POSTERS_DIR, filename), buf);
+    res.json({ url: `/posters/${filename}` });
+  } catch (err) {
+    res.status(400).json({ error: 'Could not download image' });
+  }
+});
+
 // GET all concerts
 app.get('/api/concerts', (req, res) => {
   const rows = db.prepare('SELECT * FROM concerts ORDER BY year DESC, band_name ASC').all();
@@ -108,31 +151,10 @@ app.get('/api/concerts', (req, res) => {
 
 // POST new concert
 app.post('/api/concerts', (req, res) => {
-  const { band_name, spotify_id, spotify_image, spotify_genres, year, location, attendees, notes, event_id, billing } = req.body;
+  const { band_name, spotify_id, spotify_image, spotify_genres, year, location, attendees, notes, event_id, billing, poster_url } = req.body;
   if (!band_name || !year) return res.status(400).json({ error: 'band_name and year required' });
   const result = db.prepare(
-    'INSERT INTO concerts (band_name, spotify_id, spotify_image, spotify_genres, year, location, attendees, notes, event_id, billing) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
-  ).run(
-    band_name,
-    spotify_id || null,
-    spotify_image || null,
-    spotify_genres?.length ? JSON.stringify(spotify_genres) : null,
-    year,
-    location || null,
-    attendees?.length ? JSON.stringify(attendees) : null,
-    notes || null,
-    event_id || null,
-    billing || null
-  );
-  res.status(201).json({ id: result.lastInsertRowid });
-});
-
-// PUT update a concert
-app.put('/api/concerts/:id', (req, res) => {
-  const { band_name, spotify_id, spotify_image, spotify_genres, year, location, attendees, notes, event_id, billing } = req.body;
-  if (!band_name || !year) return res.status(400).json({ error: 'band_name and year required' });
-  db.prepare(
-    'UPDATE concerts SET band_name=?, spotify_id=?, spotify_image=?, spotify_genres=?, year=?, location=?, attendees=?, notes=?, event_id=?, billing=? WHERE id=?'
+    'INSERT INTO concerts (band_name, spotify_id, spotify_image, spotify_genres, year, location, attendees, notes, event_id, billing, poster_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
   ).run(
     band_name,
     spotify_id || null,
@@ -144,6 +166,29 @@ app.put('/api/concerts/:id', (req, res) => {
     notes || null,
     event_id || null,
     billing || null,
+    poster_url || null
+  );
+  res.status(201).json({ id: result.lastInsertRowid });
+});
+
+// PUT update a concert
+app.put('/api/concerts/:id', (req, res) => {
+  const { band_name, spotify_id, spotify_image, spotify_genres, year, location, attendees, notes, event_id, billing, poster_url } = req.body;
+  if (!band_name || !year) return res.status(400).json({ error: 'band_name and year required' });
+  db.prepare(
+    'UPDATE concerts SET band_name=?, spotify_id=?, spotify_image=?, spotify_genres=?, year=?, location=?, attendees=?, notes=?, event_id=?, billing=?, poster_url=? WHERE id=?'
+  ).run(
+    band_name,
+    spotify_id || null,
+    spotify_image || null,
+    spotify_genres?.length ? JSON.stringify(spotify_genres) : null,
+    year,
+    location || null,
+    attendees?.length ? JSON.stringify(attendees) : null,
+    notes || null,
+    event_id || null,
+    billing || null,
+    poster_url || null,
     req.params.id
   );
   res.status(200).json({ id: parseInt(req.params.id) });
@@ -163,19 +208,19 @@ app.get('/api/events', (req, res) => {
 
 // POST new event
 app.post('/api/events', (req, res) => {
-  const { name, date, venue, type } = req.body;
+  const { name, date, venue, type, poster_url } = req.body;
   const result = db.prepare(
-    'INSERT INTO events (name, date, venue, type) VALUES (?, ?, ?, ?)'
-  ).run(name || null, date || null, venue || null, type === 'festival' ? 'festival' : 'gig');
+    'INSERT INTO events (name, date, venue, type, poster_url) VALUES (?, ?, ?, ?, ?)'
+  ).run(name || null, date || null, venue || null, type === 'festival' ? 'festival' : 'gig', poster_url || null);
   res.status(201).json({ id: result.lastInsertRowid });
 });
 
 // PUT update an event
 app.put('/api/events/:id', (req, res) => {
-  const { name, date, venue, type } = req.body;
+  const { name, date, venue, type, poster_url } = req.body;
   db.prepare(
-    'UPDATE events SET name=?, date=?, venue=?, type=? WHERE id=?'
-  ).run(name || null, date || null, venue || null, type === 'festival' ? 'festival' : 'gig', req.params.id);
+    'UPDATE events SET name=?, date=?, venue=?, type=?, poster_url=? WHERE id=?'
+  ).run(name || null, date || null, venue || null, type === 'festival' ? 'festival' : 'gig', poster_url || null, req.params.id);
   res.status(200).json({ id: parseInt(req.params.id) });
 });
 

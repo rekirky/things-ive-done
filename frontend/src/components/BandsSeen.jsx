@@ -380,9 +380,15 @@ function GigCard({ group, onDelete, onEdit, onEditEvent }) {
     ? new Date(event.date + 'T00:00:00').toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
     : String(headliners[0].year);
   const venue = event?.venue || headliners[0].location;
+  const poster = event?.poster_url || concerts.find(c => c.poster_url)?.poster_url;
 
   return (
     <div className={`gig-card ${event?.type === 'festival' ? 'gig-card--festival' : ''}`}>
+      {poster && (
+        <div className="gig-card__poster">
+          <img src={poster} alt={`${title} poster`} />
+        </div>
+      )}
       <div className="gig-card__header">
         {event?.type === 'festival' && <span className="gig-card__type-badge">🎪 Festival</span>}
         <div className="gig-card__title-row">

@@ -46,6 +46,8 @@ db.exec(`
 // Migrate: link concerts to an event (gig/festival) and record each band's billing on that bill
 try { db.exec(`ALTER TABLE concerts ADD COLUMN event_id INTEGER REFERENCES events(id)`); } catch (_) {}
 try { db.exec(`ALTER TABLE concerts ADD COLUMN billing TEXT`); } catch (_) {}
+try { db.exec(`ALTER TABLE concerts ADD COLUMN poster_url TEXT`); } catch (_) {}
+try { db.exec(`ALTER TABLE events ADD COLUMN poster_url TEXT`); } catch (_) {}
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS timeline_settings (
