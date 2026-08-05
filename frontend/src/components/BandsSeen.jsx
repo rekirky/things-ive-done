@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import AddConcertModal from './AddConcertModal.jsx';
+import EventEditModal from './EventEditModal.jsx';
 import './BandsSeen.css';
 
 const PRESET_ATTENDEES = ['Jon', 'Mel', 'Adam', 'Tegan'];
@@ -19,9 +20,11 @@ export default function BandsSeen() {
   const [viewMode, setViewMode] = useState('band'); // 'band' | 'gig'
   const [showAdd, setShowAdd] = useState(false);
   const [editConcert, setEditConcert] = useState(null);
+  const [editEvent, setEditEvent] = useState(null);
   const [filterAttendees, setFilterAttendees] = useState([]);
   const [filterMedal, setFilterMedal] = useState(null);
   const [filterYear, setFilterYear] = useState('');
+  const [filterFestivalsOnly, setFilterFestivalsOnly] = useState(false);
   const [sortBy, setSortBy] = useState('year-desc');
 
   const fetchConcerts = () =>
@@ -113,10 +116,12 @@ export default function BandsSeen() {
       );
     if (filterYear)
       list = list.filter(g => g.concerts.some(c => c.year === parseInt(filterYear)));
+    if (filterFestivalsOnly)
+      list = list.filter(g => g.event?.type === 'festival');
     if (sortBy === 'year-asc') list.sort((a, b) => a.year - b.year);
     else list.sort((a, b) => b.year - a.year);
     return list;
-  }, [gigGroups, filterAttendees, filterYear, sortBy]);
+  }, [gigGroups, filterAttendees, filterYear, filterFestivalsOnly, sortBy]);
 
   return (
     <div className="bands-seen">
@@ -153,6 +158,15 @@ export default function BandsSeen() {
                 </button>
               ))}
             </div>
+          )}
+          {viewMode === 'gig' && (
+            <button
+              className={`medal-filter ${filterFestivalsOnly ? 'active' : ''}`}
+              onClick={() => setFilterFestivalsOnly(v => !v)}
+              title="Festivals only"
+            >
+              🎪 Festivals
+            </button>
           )}
           <select value={filterYear} onChange={e => setFilterYear(e.target.value)}>
             <option value="">All years</option>
@@ -200,7 +214,7 @@ export default function BandsSeen() {
 
           <div className="gigs-grid">
             {filteredGigGroups.map(group => (
-              <GigCard key={group.id} group={group} onDelete={refetchAll} onEdit={setEditConcert} />
+              <GigCard key={group.id} group={group} onDelete={refetchAll} onEdit={setEditConcert} onEditEvent={setEditEvent} />
             ))}
             {filteredGigGroups.length === 0 && (
               <div className="concerts-empty">No concerts yet. Add one!</div>
@@ -223,6 +237,13 @@ export default function BandsSeen() {
           knownAttendees={allAttendees}
           onSave={() => { setEditConcert(null); refetchAll(); }}
           onClose={() => setEditConcert(null)}
+        />
+      )}
+      {editEvent && (
+        <EventEditModal
+          event={editEvent}
+          onSave={() => { setEditEvent(null); refetchAll(); }}
+          onClose={() => setEditEvent(null)}
         />
       )}
     </div>
@@ -347,7 +368,7 @@ function ConcertRow({ concert, onDelete, onEdit }) {
   );
 }
 
-function GigCard({ group, onDelete, onEdit }) {
+function GigCard({ group, onDelete, onEdit, onEditEvent }) {
   const { event, concerts } = group;
   const isLineup = concerts.length > 1;
   const billedHeadliners = concerts.filter(c => c.billing === 'headliner');
@@ -364,7 +385,12 @@ function GigCard({ group, onDelete, onEdit }) {
     <div className={`gig-card ${event?.type === 'festival' ? 'gig-card--festival' : ''}`}>
       <div className="gig-card__header">
         {event?.type === 'festival' && <span className="gig-card__type-badge">🎪 Festival</span>}
-        <h3 className="gig-card__title">{title}</h3>
+        <div className="gig-card__title-row">
+          <h3 className="gig-card__title">{title}</h3>
+          {event && (
+            <button className="gig-card__edit" onClick={() => onEditEvent(event)} title="Edit gig details">✎</button>
+          )}
+        </div>
         <div className="gig-card__meta">
           <span className="gig-card__date">{dateLabel}</span>
           {venue && <span className="gig-card__venue">{venue}</span>}
