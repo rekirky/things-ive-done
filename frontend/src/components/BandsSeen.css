@@ -77,6 +77,23 @@
 .medal-filter--silver.active { border-color: #c0c0c0; }
 .medal-filter--bronze.active { border-color: #cd7f32; }
 
+.control-toggle {
+  background: #16213e;
+  border: 1px solid #0f3460;
+  border-radius: 6px;
+  color: #aaa;
+  padding: 0.32rem 0.7rem;
+  font-size: 0.8rem;
+  cursor: pointer;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  transition: all 0.15s;
+}
+.control-toggle:hover { border-color: #e94560; color: #e0e0e0; }
+.control-toggle.active { background: #e94560; border-color: #e94560; color: #fff; }
+
 .add-concert-btn {
   padding: 0.4rem 1rem;
   background: #e94560;
@@ -389,13 +406,58 @@
 .gig-card:hover { transform: translateY(-2px); }
 .gig-card--festival { border-color: #7a3ecb; }
 
-.gig-card__poster {
+.gig-card--flippable {
+  perspective: 1200px;
+  cursor: pointer;
+  background: none;
+  border: none;
+  overflow: visible;
+}
+
+.gig-card__flip {
+  position: relative;
   width: 100%;
-  aspect-ratio: 3 / 2;
+  height: 100%;
+  transition: transform 0.6s cubic-bezier(0.4, 0.2, 0.2, 1);
+  transform-style: preserve-3d;
+}
+.gig-card__flip--back { transform: rotateY(180deg); }
+
+.gig-card__face {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+  background: #16213e;
+  border: 1px solid #0f3460;
+  border-radius: 10px;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.gig-card--festival .gig-card__face { border-color: #7a3ecb; }
+
+.gig-card__face--front { position: relative; }
+
+.gig-card__face--back {
+  transform: rotateY(180deg);
   background: #0d1117;
 }
-.gig-card__poster img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.gig-card__face--back img {
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  object-fit: contain;
+  display: block;
+}
+.gig-card__back-caption {
+  padding: 0.6rem 0.9rem;
+  border-top: 1px solid #0f3460;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+.gig-card__back-title { font-size: 0.9rem; font-weight: 600; color: #e0e0e0; }
+.gig-card__back-meta { font-size: 0.75rem; color: #777; }
 
 .gig-card__header {
   padding: 0.75rem 0.9rem 0.6rem;

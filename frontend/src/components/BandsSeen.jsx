@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef, useLayoutEffect } from 'react';
 import AddConcertModal from './AddConcertModal.jsx';
 import EventEditModal from './EventEditModal.jsx';
 import './BandsSeen.css';
@@ -25,6 +25,7 @@ export default function BandsSeen() {
   const [filterMedal, setFilterMedal] = useState(null);
   const [filterYear, setFilterYear] = useState('');
   const [filterFestivalsOnly, setFilterFestivalsOnly] = useState(false);
+  const [showPosters, setShowPosters] = useState(true);
   const [sortBy, setSortBy] = useState('year-desc');
 
   const fetchConcerts = () =>
@@ -161,11 +162,20 @@ export default function BandsSeen() {
           )}
           {viewMode === 'gig' && (
             <button
-              className={`medal-filter ${filterFestivalsOnly ? 'active' : ''}`}
+              className={`control-toggle ${filterFestivalsOnly ? 'active' : ''}`}
               onClick={() => setFilterFestivalsOnly(v => !v)}
               title="Festivals only"
             >
               🎪 Festivals
+            </button>
+          )}
+          {viewMode === 'gig' && (
+            <button
+              className={`control-toggle ${showPosters ? 'active' : ''}`}
+              onClick={() => setShowPosters(v => !v)}
+              title="Show posters by default"
+            >
+              🖼️ Posters
             </button>
           )}
           <select value={filterYear} onChange={e => setFilterYear(e.target.value)}>
@@ -214,7 +224,7 @@ export default function BandsSeen() {
 
           <div className="gigs-grid">
             {filteredGigGroups.map(group => (
-              <GigCard key={group.id} group={group} onDelete={refetchAll} onEdit={setEditConcert} onEditEvent={setEditEvent} />
+              <GigCard key={group.id} group={group} onDelete={refetchAll} onEdit={setEditConcert} onEditEvent={setEditEvent} showPosters={showPosters} />
             ))}
             {filteredGigGroups.length === 0 && (
               <div className="concerts-empty">No concerts yet. Add one!</div>
@@ -368,7 +378,7 @@ function ConcertRow({ concert, onDelete, onEdit }) {
   );
 }
 
-function GigCard({ group, onDelete, onEdit, onEditEvent }) {
+function GigCard({ group, onDelete, onEdit, onEditEvent, showPosters }) {
   const { event, concerts } = group;
   const isLineup = concerts.length > 1;
   const billedHeadliners = concerts.filter(c => c.billing === 'headliner');
@@ -382,19 +392,25 @@ function GigCard({ group, onDelete, onEdit, onEditEvent }) {
   const venue = event?.venue || headliners[0].location;
   const poster = event?.poster_url || concerts.find(c => c.poster_url)?.poster_url;
 
-  return (
-    <div className={`gig-card ${event?.type === 'festival' ? 'gig-card--festival' : ''}`}>
-      {poster && (
-        <div className="gig-card__poster">
-          <img src={poster} alt={`${title} poster`} />
-        </div>
-      )}
+  const frontRef = useRef(null);
+  const [cardHeight, setCardHeight] = useState(null);
+  const [flipped, setFlipped] = useState(Boolean(poster) && showPosters);
+
+  // Global "show posters" toggle drives the resting face; per-card clicks flip away from it
+  useEffect(() => { setFlipped(Boolean(poster) && showPosters); }, [showPosters, poster]);
+
+  useLayoutEffect(() => {
+    if (frontRef.current) setCardHeight(frontRef.current.offsetHeight);
+  }, [concerts, poster]);
+
+  const infoFace = (
+    <>
       <div className="gig-card__header">
         {event?.type === 'festival' && <span className="gig-card__type-badge">🎪 Festival</span>}
         <div className="gig-card__title-row">
           <h3 className="gig-card__title">{title}</h3>
           {event && (
-            <button className="gig-card__edit" onClick={() => onEditEvent(event)} title="Edit gig details">✎</button>
+            <button className="gig-card__edit" onClick={e => { e.stopPropagation(); onEditEvent(event); }} title="Edit gig details">✎</button>
           )}
         </div>
         <div className="gig-card__meta">
@@ -402,13 +418,43 @@ function GigCard({ group, onDelete, onEdit, onEditEvent }) {
           {venue && <span className="gig-card__venue">{venue}</span>}
         </div>
       </div>
-      <div className="gig-card__lineup">
+      <div className="gig-card__lineup" onClick={e => e.stopPropagation()}>
         {headliners.map(c => (
           <GigBandRow key={c.id} concert={c} isHeadliner={isLineup} showBilling={isLineup} onDelete={onDelete} onEdit={onEdit} />
         ))}
         {support.map(c => (
           <GigBandRow key={c.id} concert={c} isHeadliner={false} showBilling={isLineup} onDelete={onDelete} onEdit={onEdit} />
         ))}
+      </div>
+    </>
+  );
+
+  if (!poster) {
+    return (
+      <div className={`gig-card ${event?.type === 'festival' ? 'gig-card--festival' : ''}`}>
+        {infoFace}
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className={`gig-card gig-card--flippable ${event?.type === 'festival' ? 'gig-card--festival' : ''}`}
+      style={cardHeight ? { height: cardHeight } : undefined}
+      onClick={() => setFlipped(f => !f)}
+      title="Click to flip"
+    >
+      <div className={`gig-card__flip ${flipped ? 'gig-card__flip--back' : ''}`}>
+        <div className="gig-card__face gig-card__face--front" ref={frontRef}>
+          {infoFace}
+        </div>
+        <div className="gig-card__face gig-card__face--back">
+          <img src={poster} alt={`${title} poster`} />
+          <div className="gig-card__back-caption">
+            <span className="gig-card__back-title">{title}</span>
+            <span className="gig-card__back-meta">{dateLabel}{venue ? ` · ${venue}` : ''}</span>
+          </div>
+        </div>
       </div>
     </div>
   );
